@@ -31,11 +31,32 @@ Everything runs offline against a deterministic stub model. Set `ANTHROPIC_API_K
 (and optionally `GLASSBOX_MODEL_ID`, default `claude-sonnet-4-6`) to record and fork against the
 real model instead; replay never calls the model.
 
+## The `glassbox` CLI — two agents, one engine
+
+The generic CLI drives record/replay/fork over a SQLite trace store for **any**
+registered agent. Two demo agents are wired in; the second one (support-triage)
+required zero engine or CLI changes — it is just another registration.
+
+```bash
+pnpm glassbox record --agent research-emailer --input '{"topic":"vector databases","recipient":"team@x.com"}'
+pnpm glassbox record --agent support-triage   --input '{"customer":"c-42","ticket":"login is broken, cannot access account"}'
+pnpm glassbox list
+pnpm glassbox replay --trace <id>                       # bit-identical; LLM not re-called; side effect SIMULATED
+pnpm glassbox fork   --trace <id> --step <n> --system "…edited prompt…"   # divergent continuation
+```
+
+Instrumenting a new agent is config-only via the tool-loop adapter — see
+[`INTEGRATION.md`](./INTEGRATION.md).
+
 ## Layout
 
 ```
-packages/engine            record-replay-fork core + trace model (pure, headless, zod-validated)
-examples/research-emailer  the demo agent + CLI harness (record/replay/fork/steps/demo)
+packages/engine            record-replay-fork core, trace model, tool-loop adapter,
+                           Anthropic SDK adapter, SQLite store, generic CLI (pure, zod-validated)
+examples/research-emailer  demo agent #1: topic → search → read → draft → send_email → confirm
+examples/support-triage    demo agent #2: ticket → classify → lookup → draft → create_ticket → confirm
+examples/glassbox          the glassbox CLI entrypoint registering both agents over SQLite
+INTEGRATION.md             the integration contract (raw + tool-loop adapter)
 SPEC.md PLAN.md CLAUDE.md  product, roadmap, conventions
 ```
 
@@ -53,7 +74,8 @@ SPEC.md PLAN.md CLAUDE.md  product, roadmap, conventions
 
 ## Status
 
-Phase 0 exit criteria met: `pnpm i && pnpm verify` is green from a fresh clone, and the three CLI
-commands demonstrate record → bit-identical replay → fork-with-edited-prompt → divergent continuation,
-with the email SIMULATED on replay/fork and `outbox.json` written only during `record`.
-Next up is [Phase 1](./PLAN.md) (engine hardening + the Anthropic-SDK adapter + SQLite).
+**Phase 0** (engine spike) and **Phase 1** (engine hardening + integration contract) are complete:
+the documented integration contract + tool-loop adapter, per-tool opt-in live re-execution, an
+Anthropic SDK adapter, SQLite persistence, and the generic `glassbox` CLI — proven by instrumenting
+a **second, different agent with no engine changes**. `pnpm i && pnpm verify` is green from a fresh
+clone. Next is [Phase 2](./PLAN.md): the debugger web UI over the same engine.

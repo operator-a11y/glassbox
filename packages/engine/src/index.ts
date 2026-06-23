@@ -96,4 +96,7 @@ export type { TraceStore, TraceSummary } from './store.ts';
 export { sqliteTraceStore } from './store-sqlite.ts';
 
 export { runCli } from './cli.ts';
-export type { GlassboxCliConfig } from './cli.ts';
+export type { GlassboxCliConfig, AgentRegistration } from './cli.ts';
+
+export { anthropicClient, selectAnthropicOrStub } from './adapters/anthropic.ts';
+export type { ClientSelection } from './adapters/anthropic.ts';

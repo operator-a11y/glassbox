@@ -1,0 +1,15 @@
+{
+  "name": "@glassbox/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The glassbox developer CLI wiring both demo agents over a SQLite trace store.",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@glassbox/engine": "workspace:*",
+    "@glassbox/example-research-emailer": "workspace:*",
+    "@glassbox/example-support-triage": "workspace:*"
+  }
+}

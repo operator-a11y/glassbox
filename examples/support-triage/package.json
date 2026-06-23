@@ -1,9 +1,9 @@
 {
-  "name": "@glassbox/example-research-emailer",
+  "name": "@glassbox/example-support-triage",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Structured demo agent: topic -> search -> read -> draft -> send email (side-effecting) -> confirm.",
+  "description": "Second structured agent: ticket -> classify -> lookup customer -> draft -> create_ticket (side-effecting) -> confirm.",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -11,7 +11,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.105.0",
     "@glassbox/engine": "workspace:*",
     "zod": "^4.4.3"
   }

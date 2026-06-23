@@ -1,8 +1,6 @@
 /**
- * Model selection for the research-emailer: the real Anthropic client when
- * ANTHROPIC_API_KEY is set, else this agent's deterministic stub. The actual SDK
- * adapter now lives in the engine (`selectAnthropicOrStub`); this is a thin wrapper
- * binding it to this agent's stub.
+ * Model selection for support-triage: real Anthropic client when a key is set,
+ * else this agent's deterministic stub.
  */
 
 import { selectAnthropicOrStub } from '@glassbox/engine';

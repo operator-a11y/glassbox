@@ -9,7 +9,9 @@
  *
  * `runCli` is agent-agnostic: it drives record/replay/fork over a TraceStore and an
  * agent registry, so a new agent works with zero CLI/engine changes — just register
- * its factory. Replay uses a throwing model client to prove the LLM is not re-called.
+ * its factory + client. Each agent supplies its own client (real when a key is set,
+ * else its deterministic stub). Replay uses a throwing client to prove the LLM is
+ * not re-called.
  */
 
 import { runAgent } from './runner.ts';
@@ -21,12 +23,17 @@ import { canonicalize } from './json.ts';
 import type { JsonValue } from './json.ts';
 import { assertPrefixIdentical, assertReplayIdentical, stepIdentity, summarizeStep } from './diff.ts';
 
+export interface AgentRegistration {
+  /** Fresh AgentDefinition per run (so sinks/state don't leak between runs). */
+  build: () => AgentDefinition;
+  /** Resolve the live model client (real if a key is set, else this agent's stub). */
+  client: () => Promise<{ client: ModelClient; modelId: string; label?: string }>;
+}
+
 export interface GlassboxCliConfig {
-  /** Registry of agent factories, keyed by agent name (must equal AgentDefinition.name). */
-  agents: Record<string, () => AgentDefinition>;
+  /** Agent registry keyed by agent name (must equal AgentDefinition.name). */
+  agents: Record<string, AgentRegistration>;
   store: TraceStore;
-  /** Resolve the live model client (real when a key is set, else a stub). */
-  selectClient: () => Promise<{ client: ModelClient; modelId: string; label?: string }>;
   argv?: string[];
   out?: (line: string) => void;
 }
@@ -80,16 +87,16 @@ export async function runCli(config: GlassboxCliConfig): Promise<void> {
 
 async function cmdRecord(config: GlassboxCliConfig, flags: Flags, out: Out): Promise<void> {
   const name = req(flags, 'agent');
-  const build = config.agents[name];
-  if (!build) throw new CliError(`unknown agent "${name}" (registered: ${Object.keys(config.agents).join(', ')})`);
+  const reg = config.agents[name];
+  if (!reg) throw new CliError(`unknown agent "${name}" (registered: ${Object.keys(config.agents).join(', ')})`);
   const input = flags['input'] ? safeJson(flags['input']) : {};
-  const { client, modelId, label } = await config.selectClient();
+  const sel = await reg.client();
 
-  const { trace } = await runAgent({ agent: build(), input, mode: { kind: 'record' }, client, modelId });
+  const { trace } = await runAgent({ agent: reg.build(), input, mode: { kind: 'record' }, client: sel.client, modelId: sel.modelId });
   config.store.save(trace);
 
   out(`recorded ${trace.id}`);
-  out(`  agent ${name}   steps ${trace.steps.length}   status ${trace.status}   model ${label ?? modelId}`);
+  out(`  agent ${name}   steps ${trace.steps.length}   status ${trace.status}   model ${sel.label ?? sel.modelId}`);
   printTimeline(trace, out);
 }
 
@@ -113,7 +120,7 @@ function cmdSteps(config: GlassboxCliConfig, flags: Flags, out: Out): void {
 
 async function cmdReplay(config: GlassboxCliConfig, flags: Flags, out: Out): Promise<void> {
   const original = loadOrThrow(config, req(flags, 'trace'));
-  const agent = rebuild(config, original);
+  const agent = regFor(config, original).build();
 
   const { trace: replay } = await runAgent({
     agent,
@@ -141,15 +148,15 @@ async function cmdFork(config: GlassboxCliConfig, flags: Flags, out: Out): Promi
   }
   const system = flags['system'] ?? null;
   const liveTools = flags['live-tools'] ? flags['live-tools'].split(',').map((s) => s.trim()) : undefined;
-  const agent = rebuild(config, original);
-  const { client, modelId } = await config.selectClient();
+  const reg = regFor(config, original);
+  const sel = await reg.client();
 
   const { trace: forked } = await runAgent({
-    agent,
+    agent: reg.build(),
     input: original.input,
     mode: { kind: 'fork', fromStep: step, mutation: { system } },
-    client,
-    modelId,
+    client: sel.client,
+    modelId: sel.modelId,
     source: original,
     ...(liveTools ? { liveTools } : {}),
   });
@@ -202,12 +209,12 @@ function loadOrThrow(config: GlassboxCliConfig, id: string): Trace {
   return t;
 }
 
-function rebuild(config: GlassboxCliConfig, trace: Trace): AgentDefinition {
-  const build = config.agents[trace.config.agent];
-  if (!build) {
+function regFor(config: GlassboxCliConfig, trace: Trace): AgentRegistration {
+  const reg = config.agents[trace.config.agent];
+  if (!reg) {
     throw new CliError(`trace's agent "${trace.config.agent}" is not registered (have: ${Object.keys(config.agents).join(', ')})`);
   }
-  return build();
+  return reg;
 }
 
 function defaultForkStep(trace: Trace): number {

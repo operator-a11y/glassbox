@@ -72,7 +72,7 @@ async function main(): Promise<void> {
 async function cmdRecord(flags: Flags): Promise<Trace> {
   const topic = flags['topic'] ?? DEFAULT_TOPIC;
   const recipient = flags['recipient'] ?? DEFAULT_RECIPIENT;
-  const { client, modelId, usingStub } = await selectModel();
+  const { client, modelId, label } = await selectModel();
   const sink = fileOutboxSink(OUTBOX_PATH);
   const agent = buildAgent(sink);
 
@@ -82,7 +82,7 @@ async function cmdRecord(flags: Flags): Promise<Trace> {
   const after = readOutbox(OUTBOX_PATH).length;
 
   header('RECORD');
-  line(`model         ${usingStub ? 'stub (deterministic, offline)' : modelId}`);
+  line(`model         ${label}`);
   line(`topic         "${topic}"  →  ${recipient}`);
   line(`steps         ${trace.steps.length}   status: ${trace.status}`);
   line(`outbox.json   +${after - before} email (real side effect fired)`);
@@ -134,7 +134,7 @@ async function cmdFork(flags: Flags): Promise<void> {
   }
   const system = flags['system'] ?? mutatedPrompt('enthusiastic');
   const promptChanged = system !== original.config.systemPrompt;
-  const { client, modelId, usingStub } = await selectModel();
+  const { client, modelId, label } = await selectModel();
   const sink = memoryOutboxSink();
   const agent = buildAgent(sink);
 
@@ -158,7 +158,7 @@ async function cmdFork(flags: Flags): Promise<void> {
       ? `mutation        system prompt edited`
       : `mutation        none — system prompt unchanged (suffix re-runs live but won't diverge from the prompt)`,
   );
-  line(`model (suffix)  ${usingStub ? 'stub (deterministic, offline)' : modelId}`);
+  line(`model (suffix)  ${label}`);
   line(`pre-fork        ✓ identical to the original (steps 0..${step - 1} untouched)`);
   line(`outbox.json     unchanged (${before} → ${after} emails)`);
   blank();

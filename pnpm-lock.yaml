@@ -21,11 +21,32 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@types/node@26.0.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(tsx@4.22.4))
 
+  examples/glassbox:
+    dependencies:
+      '@glassbox/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@glassbox/example-research-emailer':
+        specifier: workspace:*
+        version: link:../research-emailer
+      '@glassbox/example-support-triage':
+        specifier: workspace:*
+        version: link:../support-triage
+
   examples/research-emailer:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.105.0
         version: 0.105.0(zod@4.4.3)
+      '@glassbox/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
+  examples/support-triage:
+    dependencies:
       '@glassbox/engine':
         specifier: workspace:*
         version: link:../../packages/engine
