@@ -16,7 +16,8 @@
     "replay": "tsx examples/research-emailer/src/cli.ts replay",
     "fork": "tsx examples/research-emailer/src/cli.ts fork",
     "demo": "tsx examples/research-emailer/src/cli.ts demo",
-    "glassbox": "tsx examples/glassbox/src/glassbox.ts"
+    "glassbox": "tsx examples/glassbox/src/glassbox.ts",
+    "daemon": "tsx examples/glassbox/src/daemon.ts"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",

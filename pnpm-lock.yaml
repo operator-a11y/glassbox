@@ -23,6 +23,9 @@ importers:
 
   examples/glassbox:
     dependencies:
+      '@glassbox/daemon':
+        specifier: workspace:*
+        version: link:../../packages/daemon
       '@glassbox/engine':
         specifier: workspace:*
         version: link:../../packages/engine
@@ -53,6 +56,12 @@ importers:
       zod:
         specifier: ^4.4.3
         version: 4.4.3
+
+  packages/daemon:
+    dependencies:
+      '@glassbox/engine':
+        specifier: workspace:*
+        version: link:../engine
 
   packages/engine:
     dependencies:

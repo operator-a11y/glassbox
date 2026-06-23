@@ -1,0 +1,16 @@
+{
+  "name": "@glassbox/daemon",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local Glassbox daemon: a REST API over the record-replay-fork engine.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@glassbox/engine": "workspace:*"
+  }
+}
