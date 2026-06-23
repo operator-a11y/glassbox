@@ -52,6 +52,9 @@ export interface RunOptions {
   /** Recorded trace to serve from (required for replay / fork). */
   source?: Trace | null;
   maxSteps?: number;
+  /** Tool names to opt into real live re-execution in the fork suffix (overrides
+   *  per-tool `liveReplay`). Use sparingly — re-fires real side effects. */
+  liveTools?: string[];
   /** Injectable engine-metadata generators (kept out of the bit-identical check). */
   newId?: () => string;
   nowIso?: () => string;
@@ -84,6 +87,7 @@ export async function runAgent(opts: RunOptions): Promise<RunResult> {
     systemPrompt: originalSystem,
     maxSteps,
     source: source ? { steps: source.steps, nondeterminism: source.nondeterminism } : null,
+    ...(opts.liveTools ? { liveTools: opts.liveTools } : {}),
   });
 
   const state: JsonObject = {};

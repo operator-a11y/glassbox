@@ -236,6 +236,36 @@ describe('record → replay → fork', () => {
     expect(v1).toBe(v2);
   });
 
+  it('per-tool opt-in: a side-effecting tool can be forced to fire live in the fork suffix', async () => {
+    const counter = { commits: 0 };
+    const agent = makeAgent(counter);
+    const client = scriptedModel();
+    const rec = await runAgent({ agent, input: { q: 'cats' }, mode: { kind: 'record' }, client, modelId: 'stub', ...META });
+    expect(counter.commits).toBe(1);
+
+    // Default fork: the side effect is SIMULATED, never re-fired.
+    const f1 = await runAgent({ agent, input: { q: 'cats' }, mode: { kind: 'fork', fromStep: 2, mutation: { system: 'You are a writer. TONE: A' } }, client, modelId: 'stub', source: rec.trace });
+    expect(counter.commits).toBe(1);
+    const s1 = f1.trace.steps[3]!;
+    expect(s1.type === 'tool' && s1.executionMode).toBe('simulated');
+
+    // Opted-in fork: the side effect FIRES for real and is flagged live.
+    const f2 = await runAgent({
+      agent,
+      input: { q: 'cats' },
+      mode: { kind: 'fork', fromStep: 2, mutation: { system: 'You are a writer. TONE: B' } },
+      client,
+      modelId: 'stub',
+      source: rec.trace,
+      liveTools: ['commit'],
+    });
+    expect(counter.commits).toBe(2); // real re-execution
+    const s2 = f2.trace.steps[3]!;
+    expect(s2.type === 'tool' && s2.executionMode).toBe('live');
+    expect(s2.type === 'tool' && s2.wasRealEffect).toBe(true);
+    expect(s2.type === 'tool' && s2.simulated).toBe(false);
+  });
+
   it('enforces the maxSteps budget → truncated, side effect never reached', async () => {
     const counter = { commits: 0 };
     const agent = makeAgent(counter);

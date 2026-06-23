@@ -48,6 +48,8 @@ export interface RecorderInit {
   maxSteps: number;
   /** The recorded trace to serve from (required for replay / fork). */
   source?: { steps: Step[]; nondeterminism: Draw[] } | null;
+  /** Tool names the caller opted into real live re-execution in the fork suffix. */
+  liveTools?: string[];
 }
 
 export class Recorder {
@@ -56,6 +58,7 @@ export class Recorder {
   private readonly maxSteps: number;
   private readonly sourceSteps: Step[];
   private readonly sourceDraws: Draw[];
+  private readonly liveTools: Set<string>;
 
   private readonly steps: Step[] = [];
   private readonly draws: Draw[] = [];
@@ -72,6 +75,7 @@ export class Recorder {
     this.maxSteps = init.maxSteps;
     this.sourceSteps = init.source?.steps ?? [];
     this.sourceDraws = init.source?.nondeterminism ?? [];
+    this.liveTools = new Set(init.liveTools ?? []);
 
     if (init.mode.kind === 'record') this.live = true;
     else if (init.mode.kind === 'replay') this.live = false;
@@ -274,9 +278,9 @@ export class Recorder {
       simulated = tool.kind === 'side_effecting'; // a served side effect is SIMULATED
       executionMode = 'replayed';
       this.drainStepDraws(idx);
-    } else if (tool.kind === 'side_effecting' && this.mode.kind !== 'record') {
-      // Fork suffix: a side-effecting call is ALWAYS short-circuited before any
-      // recording lookup or live-exec fallback. The real fn is never reached.
+    } else if (tool.kind === 'side_effecting' && this.mode.kind !== 'record' && !this.isOptedLive(tool)) {
+      // Fork suffix, default: a side-effecting call is ALWAYS short-circuited before
+      // any recording lookup or live-exec fallback. The real fn is never reached.
       const start = performance.now();
       result = await this.synthesize(tool, args);
       latencyMs = roundMs(performance.now() - start);
@@ -284,8 +288,9 @@ export class Recorder {
       simulated = true;
       executionMode = 'simulated';
     } else {
-      // record mode (any kind) OR fork-suffix read_only/idempotent: run for real.
-      if (tool.kind === 'side_effecting' && this.mode.kind !== 'record') {
+      // record mode (any kind), fork-suffix read_only/idempotent, OR a side-effecting
+      // tool the caller EXPLICITLY opted into live re-execution: run for real.
+      if (tool.kind === 'side_effecting' && this.mode.kind !== 'record' && !this.isOptedLive(tool)) {
         // unreachable, but make the soundness invariant explicit and loud.
         throw new SideEffectTrapError(
           `refusing to execute side-effecting tool "${tool.name}" outside record mode`,
@@ -318,6 +323,11 @@ export class Recorder {
     this.steps.push(step);
     this.primitiveCount++;
     return jsonClone(result);
+  }
+
+  /** Did the caller explicitly opt this tool into real live re-execution? */
+  private isOptedLive(tool: ToolDefinition): boolean {
+    return tool.liveReplay === true || this.liveTools.has(tool.name);
   }
 
   private async synthesize(tool: ToolDefinition, args: JsonValue): Promise<JsonValue> {

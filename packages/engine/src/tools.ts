@@ -35,6 +35,10 @@ export interface ToolDefinition {
    *  divergent side-effecting call has no recorded result to serve. Must not
    *  perform the side effect. */
   simulate?(args: JsonValue, ctx: ToolContext): Promise<JsonValue> | JsonValue;
+  /** Opt this tool into REAL execution in the fork suffix instead of being
+   *  SIMULATED. Explicit and dangerous for side-effecting tools — the effect fires
+   *  for real and the step is flagged `executionMode: 'live'`. Off by default. */
+  liveReplay?: boolean;
 }
 
 export interface WrappedTools {

@@ -127,7 +127,11 @@ export function summarizeStep(step: Step): string {
   if (step.type === 'llm') {
     return `${idx} llm   [${step.executionMode.padEnd(9)}] ${describeContent(step.output.content)}`;
   }
-  const flag = step.simulated ? ' SIMULATED' : '';
+  const flag = step.simulated
+    ? ' SIMULATED'
+    : step.kind === 'side_effecting' && step.executionMode === 'live'
+      ? ' ⚠ LIVE-REFIRE'
+      : '';
   return `${idx} tool  [${step.executionMode.padEnd(9)}] ${step.toolName} (${step.kind})${flag} ${describeArgs(step.input)}`;
 }
 
