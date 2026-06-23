@@ -23,6 +23,9 @@ importers:
 
   examples/research-emailer:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.105.0
+        version: 0.105.0(zod@4.4.3)
       '@glassbox/engine':
         specifier: workspace:*
         version: link:../../packages/engine

@@ -1,0 +1,59 @@
+# Glassbox
+
+An agent-development tool built on one capability: **deterministic record-replay-fork of an agent run.**
+Record everything an agent does, replay it exactly, and fork from any step to explore counterfactuals.
+
+> **Phase 0 (this repo): the engine spike.** Prove the atom on a real, side-effecting agent —
+> record → bit-identical replay → fork (edit a step, replay forward) → divergent-but-valid
+> continuation, with side effects recorded-and-mocked. No product UI yet.
+
+See [`SPEC.md`](./SPEC.md) for the product, [`PLAN.md`](./PLAN.md) for the roadmap, and
+[`CLAUDE.md`](./CLAUDE.md) for conventions.
+
+## Quickstart
+
+```bash
+pnpm i
+pnpm verify    # typecheck + run all tests (offline, no API key required)
+pnpm demo      # record → replay → fork on the demo agent, end to end
+```
+
+`pnpm demo` runs the [research-emailer](./examples/research-emailer) agent
+(`topic → search → read → draft → send_email → confirm`) and shows:
+
+1. **record** — a live run captured to a trace; the real email written to `outbox.json` once.
+2. **replay** — the run re-driven **bit-identically**; the LLM **not re-called**; the email
+   **SIMULATED** (served from the recording), `outbox.json` unchanged.
+3. **fork** — restore state at a step, edit the system prompt, run **live forward from there**;
+   pre-fork steps byte-identical, the continuation divergent, the email still **SIMULATED**.
+
+Everything runs offline against a deterministic stub model. Set `ANTHROPIC_API_KEY`
+(and optionally `GLASSBOX_MODEL_ID`, default `claude-sonnet-4-6`) to record and fork against the
+real model instead; replay never calls the model.
+
+## Layout
+
+```
+packages/engine            record-replay-fork core + trace model (pure, headless, zod-validated)
+examples/research-emailer  the demo agent + CLI harness (record/replay/fork/steps/demo)
+SPEC.md PLAN.md CLAUDE.md  product, roadmap, conventions
+```
+
+## The engine in one screen
+
+- **Determinism is the product.** Every nondeterminism source (LLM outputs, tool results,
+  timestamps, ids) is recorded and served back on replay. A replay that isn't bit-identical pre-fork
+  is a bug, enforced by an automated test.
+- **Resumption by re-drive, not restore.** Replay/fork re-run the agent from the top; the engine
+  serves recorded values for steps before the fork and runs live after. This makes "bit-identical" a
+  real proof (state is recomputed and compared) and dissolves a class of state-restore bugs.
+- **Side effects are recorded-and-mocked.** Tools are typed `read_only | idempotent | side_effecting`.
+  A side-effecting tool runs for real only at record time; on replay/fork it is served or synthesized
+  and labeled **SIMULATED**, never re-fired — with an engine trap that throws if it ever is.
+
+## Status
+
+Phase 0 exit criteria met: `pnpm i && pnpm verify` is green from a fresh clone, and the three CLI
+commands demonstrate record → bit-identical replay → fork-with-edited-prompt → divergent continuation,
+with the email SIMULATED on replay/fork and `outbox.json` written only during `record`.
+Next up is [Phase 1](./PLAN.md) (engine hardening + the Anthropic-SDK adapter + SQLite).
