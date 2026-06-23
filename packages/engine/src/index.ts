@@ -94,3 +94,6 @@ export type { TraceComparison } from './diff.ts';
 export { saveTrace, loadTrace, memoryTraceStore, traceSummary } from './store.ts';
 export type { TraceStore, TraceSummary } from './store.ts';
 export { sqliteTraceStore } from './store-sqlite.ts';
+
+export { runCli } from './cli.ts';
+export type { GlassboxCliConfig } from './cli.ts';
