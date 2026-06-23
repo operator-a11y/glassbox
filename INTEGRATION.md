@@ -49,7 +49,7 @@ interface ToolDefinition {
   kind: 'read_only' | 'idempotent' | 'side_effecting';
   run(args: JsonValue, ctx: ToolContext): JsonValue | Promise<JsonValue>;
   simulate?(args: JsonValue, ctx: ToolContext): JsonValue | Promise<JsonValue>; // fork suffix
-  liveReplay?: boolean; // opt in to real re-execution on replay/fork (see below)
+  liveReplay?: boolean; // opt in to REAL execution in the fork suffix (see below)
 }
 ```
 
@@ -91,9 +91,11 @@ generic `glassbox` CLI that drives record / list / replay / fork over a trace st
 
 ## Per-tool live re-execution (opt-in)
 
-By default every tool is served from the recording on replay/fork (so replay is
-bit-identical and side effects never re-fire). A tool may opt in to **real
-re-execution** with `liveReplay: true` (or per-run `liveTools: ['name']`). This is the
-explicit, visible escape hatch the SPEC calls for — useful for genuinely idempotent
-reads you want fresh — and it means replay is no longer bit-identical for that tool.
-Live-re-executed steps are flagged so the divergence is never silent.
+By default every tool is served from the recording on replay/fork — replay is
+bit-identical and side effects never re-fire. In the **fork suffix** (the divergent
+region at/after the fork point), a side-effecting tool is SIMULATED by default;
+opting it in with `liveReplay: true` (or per-run `liveTools: ['name']`) makes it
+execute for **real** instead — the explicit, dangerous escape hatch the SPEC calls
+for. Such steps are flagged `executionMode: 'live'` (and `⚠ LIVE-REFIRE` in the
+timeline) so the re-fire is never silent. The pre-fork serve region is always
+served, so default replay stays bit-identical regardless of this flag.
