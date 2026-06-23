@@ -10,7 +10,8 @@
  */
 
 import { z } from 'zod';
-import type { AgentDefinition, AgentFn, JsonValue, ToolDefinition, ToolUseBlock } from '@glassbox/engine';
+import { toolLoopAgent } from '@glassbox/engine';
+import type { AgentDefinition, JsonValue, ToolDefinition } from '@glassbox/engine';
 import { searchCorpus, readCorpus } from './fixtures.ts';
 import type { OutboxSink } from './sink.ts';
 
@@ -112,43 +113,16 @@ export function buildTools(sink: OutboxSink): ToolDefinition[] {
   ];
 }
 
-export const agentRun: AgentFn = async (io) => {
-  const input = researchInputSchema.parse(io.input);
-  io.state['runId'] = io.ctx.uuid();
-  io.state['startedAt'] = io.ctx.now();
-
-  const messages: JsonValue[] = [
-    {
-      role: 'user',
-      content: `Research the topic "${input.topic}" and email a concise summary to ${input.recipient}.`,
-    },
-  ];
-  io.state['messages'] = messages;
-  io.state['toolCalls'] = 0;
-
-  for (let i = 0; i < 12; i++) {
-    const resp = await io.model.complete({ messages, tools: TOOL_SCHEMAS, maxTokens: 1024 });
-    messages.push({ role: 'assistant', content: resp.content as unknown as JsonValue });
-
-    const toolUses = resp.content.filter((b): b is ToolUseBlock => b.type === 'tool_use');
-    if (toolUses.length === 0) {
-      const text = resp.content.map((b) => (b.type === 'text' ? b.text : '')).join('').trim();
-      io.state['final'] = text;
-      return { confirmation: text };
-    }
-
-    const results: JsonValue[] = [];
-    for (const tu of toolUses) {
-      const result = await io.tools.run(tu.name, tu.input);
-      io.state['toolCalls'] = (io.state['toolCalls'] as number) + 1;
-      results.push({ type: 'tool_result', tool_use_id: tu.id, content: result });
-    }
-    messages.push({ role: 'user', content: results });
-  }
-
-  return { confirmation: (io.state['final'] as JsonValue) ?? null };
-};
-
 export function buildAgent(sink: OutboxSink, systemPrompt: string = DEFAULT_SYSTEM_PROMPT): AgentDefinition {
-  return { name: 'research-emailer', systemPrompt, tools: buildTools(sink), run: agentRun };
+  return toolLoopAgent({
+    name: 'research-emailer',
+    systemPrompt,
+    tools: buildTools(sink),
+    toolSchemas: TOOL_SCHEMAS,
+    userMessage: (input) => {
+      const { topic, recipient } = researchInputSchema.parse(input);
+      return `Research the topic "${topic}" and email a concise summary to ${recipient}.`;
+    },
+    finalize: (text) => ({ confirmation: text }),
+  });
 }

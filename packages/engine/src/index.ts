@@ -76,6 +76,9 @@ export type { RunMode, RecorderInit } from './recorder.ts';
 export { runAgent, DEFAULT_MAX_STEPS } from './runner.ts';
 export type { AgentIO, AgentFn, AgentDefinition, RunOptions, RunResult } from './runner.ts';
 
+export { toolLoopAgent } from './agent-loop.ts';
+export type { ToolLoopConfig } from './agent-loop.ts';
+
 // Comparison + store
 export {
   compareTraces,
