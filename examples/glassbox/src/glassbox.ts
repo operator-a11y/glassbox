@@ -24,10 +24,15 @@ import { registration as supportTriage } from '@glassbox/example-support-triage'
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DB_PATH = join(HERE, '.glassbox', 'traces.db');
 
-await runCli({
-  agents: {
-    'research-emailer': researchEmailer(),
-    'support-triage': supportTriage(),
-  },
-  store: sqliteTraceStore(DB_PATH),
-});
+const store = sqliteTraceStore(DB_PATH);
+try {
+  await runCli({
+    agents: {
+      'research-emailer': researchEmailer(),
+      'support-triage': supportTriage(),
+    },
+    store,
+  });
+} finally {
+  store.close();
+}

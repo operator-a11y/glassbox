@@ -14,6 +14,7 @@
  * not re-called.
  */
 
+import { ZodError } from 'zod';
 import { runAgent } from './runner.ts';
 import type { AgentDefinition } from './runner.ts';
 import type { ModelClient } from './model.ts';
@@ -77,12 +78,15 @@ export async function runCli(config: GlassboxCliConfig): Promise<void> {
     if (err instanceof CliError) {
       out(`error: ${err.message}`);
       process.exitCode = 1;
+    } else if (err instanceof ZodError) {
+      out(`error: invalid input — ${err.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ')}`);
+      process.exitCode = 1;
     } else {
       throw err;
     }
-  } finally {
-    config.store.close();
   }
+  // The store's lifecycle belongs to the caller, not runCli — closing here would
+  // wipe a memory store and invalidate a sqlite handle on reuse.
 }
 
 async function cmdRecord(config: GlassboxCliConfig, flags: Flags, out: Out): Promise<void> {
@@ -90,9 +94,13 @@ async function cmdRecord(config: GlassboxCliConfig, flags: Flags, out: Out): Pro
   const reg = config.agents[name];
   if (!reg) throw new CliError(`unknown agent "${name}" (registered: ${Object.keys(config.agents).join(', ')})`);
   const input = flags['input'] ? safeJson(flags['input']) : {};
+  const agent = reg.build();
+  if (agent.name !== name) {
+    throw new CliError(`agent registered as "${name}" builds as "${agent.name}" — the registry key must equal AgentDefinition.name (else replay/fork can't resolve it)`);
+  }
   const sel = await reg.client();
 
-  const { trace } = await runAgent({ agent: reg.build(), input, mode: { kind: 'record' }, client: sel.client, modelId: sel.modelId });
+  const { trace } = await runAgent({ agent, input, mode: { kind: 'record' }, client: sel.client, modelId: sel.modelId });
   config.store.save(trace);
 
   out(`recorded ${trace.id}`);

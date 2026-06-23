@@ -139,6 +139,12 @@ function makeAgent(counter: { commits: number }): AgentDefinition {
 
 const META = { newId: () => 'fixed-id', nowIso: () => '2020-01-01T00:00:00.000Z' };
 
+const throwingClient: ModelClient = {
+  async complete() {
+    throw new Error('LLM must not be called during replay');
+  },
+};
+
 describe('record → replay → fork', () => {
   it('replays bit-identically and never re-fires the side effect', async () => {
     const counter = { commits: 0 };
@@ -234,6 +240,37 @@ describe('record → replay → fork', () => {
     const v1 = (f1.trace.steps[3]! as unknown as { input: { value: string } }).input.value;
     const v2 = (f2.trace.steps[3]! as unknown as { input: { value: string } }).input.value;
     expect(v1).toBe(v2);
+  });
+
+  it('a saved fork is itself replayable bit-identically (per-step system is served)', async () => {
+    const counter = { commits: 0 };
+    const agent = makeAgent(counter);
+    const client = scriptedModel();
+    const rec = await runAgent({ agent, input: { q: 'cats' }, mode: { kind: 'record' }, client, modelId: 'stub', ...META });
+    const forked = await runAgent({
+      agent,
+      input: { q: 'cats' },
+      mode: { kind: 'fork', fromStep: 2, mutation: { system: 'You are a writer. TONE: ZESTY' } },
+      client,
+      modelId: 'stub',
+      source: rec.trace,
+      ...META,
+    });
+    expect(counter.commits).toBe(1); // fork did not fire
+
+    // The fork's prefix recorded the original prompt, its suffix the mutated one.
+    // Replaying the fork must reproduce both per-step and not desync or re-fire.
+    const replayFork = await runAgent({
+      agent,
+      input: forked.trace.input,
+      mode: { kind: 'replay' },
+      client: throwingClient,
+      modelId: forked.trace.config.model,
+      source: forked.trace,
+      ...META,
+    });
+    expect(counter.commits).toBe(1);
+    assertReplayIdentical(forked.trace, replayFork.trace);
   });
 
   it('per-tool opt-in: a side-effecting tool can be forced to fire live in the fork suffix', async () => {

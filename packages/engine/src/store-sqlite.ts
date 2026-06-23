@@ -53,8 +53,9 @@ export function sqliteTraceStore(path: string): TraceStore {
       json = excluded.json
   `);
   const selectJson = db.prepare('SELECT json FROM traces WHERE id = ?');
-  const selectAll = db.prepare(`SELECT ${SUMMARY_COLS} FROM traces ORDER BY created_at DESC`);
-  const selectForks = db.prepare(`SELECT ${SUMMARY_COLS} FROM traces WHERE parent_id = ? ORDER BY created_at DESC`);
+  // rowid DESC is the stable tie-break so same-millisecond traces stay newest-first.
+  const selectAll = db.prepare(`SELECT ${SUMMARY_COLS} FROM traces ORDER BY created_at DESC, rowid DESC`);
+  const selectForks = db.prepare(`SELECT ${SUMMARY_COLS} FROM traces WHERE parent_id = ? ORDER BY created_at DESC, rowid DESC`);
 
   const toSummary = (r: SummaryRow): TraceSummary => ({
     id: r.id,

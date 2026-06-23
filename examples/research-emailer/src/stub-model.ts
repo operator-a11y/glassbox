@@ -73,7 +73,7 @@ function parseTask(messages: JsonValue[]): { topic: string; recipient: string } 
   const text = isObj(first) && typeof first['content'] === 'string' ? first['content'] : '';
   // Greedy topic capture + the fixed literal suffix anchors the boundary, so a
   // topic that itself contains double-quotes is parsed correctly.
-  const m = text.match(/topic "(.+)" and email a concise summary to (.+?)\.?$/);
+  const m = text.match(/topic "([\s\S]+)" and email a concise summary to ([\s\S]+?)\.?$/);
   return { topic: m ? m[1]! : 'the topic', recipient: m ? m[2]! : 'someone' };
 }
 

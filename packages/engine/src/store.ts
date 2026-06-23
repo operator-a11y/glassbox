@@ -58,14 +58,20 @@ export function traceSummary(trace: Trace): TraceSummary {
 /** In-memory store — for tests and ephemeral runs. */
 export function memoryTraceStore(): TraceStore {
   const byId = new Map<string, Trace>();
+  const seq = new Map<string, number>();
+  let counter = 0;
   const sorted = (filter: (t: Trace) => boolean): TraceSummary[] =>
     [...byId.values()]
       .filter(filter)
-      .sort((a, b) => (a.createdAtIso < b.createdAtIso ? 1 : a.createdAtIso > b.createdAtIso ? -1 : 0))
+      .sort((a, b) => {
+        if (a.createdAtIso !== b.createdAtIso) return a.createdAtIso < b.createdAtIso ? 1 : -1;
+        return (seq.get(b.id) ?? 0) - (seq.get(a.id) ?? 0); // newest-inserted first on ties
+      })
       .map(traceSummary);
   return {
     save(trace) {
       byId.set(trace.id, traceSchema.parse(trace));
+      seq.set(trace.id, counter++);
     },
     get(id) {
       return byId.get(id) ?? null;

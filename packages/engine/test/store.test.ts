@@ -94,6 +94,14 @@ for (const variant of stores) {
       expect(forks.map((s) => s.id)).toEqual(['c', 'b']);
     });
 
+    it('breaks same-millisecond ties newest-inserted-first', () => {
+      store = variant.make();
+      store.save(fakeTrace('a', null, '2020-01-01T00:00:00.000Z'));
+      store.save(fakeTrace('b', null, '2020-01-01T00:00:00.000Z'));
+      store.save(fakeTrace('c', null, '2020-01-01T00:00:00.000Z'));
+      expect(store.list().map((s) => s.id)).toEqual(['c', 'b', 'a']);
+    });
+
     it('save is an idempotent upsert (same id overwrites)', () => {
       store = variant.make();
       store.save(fakeTrace('a', null, '2020-01-01T00:00:00.000Z'));

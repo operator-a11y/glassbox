@@ -15,7 +15,7 @@ interface AnthropicLike {
     create(body: unknown): Promise<{
       content: unknown[];
       stop_reason: string | null;
-      usage: { input_tokens: number; output_tokens: number };
+      usage?: { input_tokens: number; output_tokens: number };
     }>;
   };
 }
@@ -34,10 +34,11 @@ export async function anthropicClient(opts: { apiKey: string; model: string }): 
         messages: toAnthropicMessages(req.messages),
         tools: req.tools,
       });
+      const usage = message.usage ?? { input_tokens: 0, output_tokens: 0 };
       return {
         content: fromAnthropicContent(message.content),
         stopReason: message.stop_reason ?? 'end_turn',
-        usage: { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens },
+        usage: { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens },
       };
     },
   };
@@ -84,6 +85,9 @@ function toAnthropicBlock(b: JsonValue): unknown {
   return b; // text and tool_use blocks are already API-shaped
 }
 
+// Text + tool_use only. Other block kinds (thinking, server_tool_use, …) are
+// dropped — so do NOT pair this adapter with extended thinking until passthrough
+// is added, or assistant history would lose blocks.
 function fromAnthropicContent(content: unknown[]): ContentBlock[] {
   const out: ContentBlock[] = [];
   for (const b of content) {

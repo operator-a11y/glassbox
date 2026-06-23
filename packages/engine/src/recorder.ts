@@ -192,7 +192,7 @@ export class Recorder {
     this.ensureBudget();
     this.maybeFlipLive();
     const idx = this.primitiveCount;
-    const system = this.effectiveSystem();
+    let system = this.effectiveSystem();
     const stateBefore = this.snapshot();
 
     let content: ContentBlock[];
@@ -216,9 +216,10 @@ export class Recorder {
       executionMode = this.mode.kind === 'record' ? 'recorded' : 'live';
     } else {
       const rec = this.expectStep(idx, 'llm');
-      if (rec.input.system !== system) {
-        throw new DesyncError(`replay desync at step ${idx}: injected system prompt does not match recording`);
-      }
+      // Serve the recorded PER-STEP system prompt, not a single flat config prompt.
+      // A forked trace's prefix recorded the original prompt while its suffix recorded
+      // the mutated one, so replaying the fork must reproduce each step's own system.
+      system = rec.input.system;
       if (!canonicalEqual(rec.input.messages, req.messages)) {
         throw new DesyncError(`replay desync at step ${idx}: messages do not match recording`);
       }

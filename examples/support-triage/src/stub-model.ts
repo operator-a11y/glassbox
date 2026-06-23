@@ -62,7 +62,7 @@ function parseTask(messages: JsonValue[]): { customer: string; ticket: string } 
   const text = isObj(first) && typeof first['content'] === 'string' ? first['content'] : '';
   // Anchor on the fixed ". Ticket text:" delimiter so the customer id never
   // swallows the trailing period.
-  const customer = text.match(/Customer ID:\s*(.+?)\.\s*Ticket text:/)?.[1]?.trim() ?? 'unknown';
+  const customer = text.match(/Customer ID:\s*([\s\S]+?)\.\s*Ticket text:/)?.[1]?.trim() ?? 'unknown';
   const ticket = (text.match(/Ticket text:\s*([\s\S]+)$/)?.[1] ?? '').replace(/\.\s*$/, '').trim() || 'no details';
   return { customer, ticket };
 }
