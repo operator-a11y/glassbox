@@ -7,8 +7,9 @@ Record everything an agent does, replay it exactly, and fork from any step to ex
 > record → bit-identical replay → fork (edit a step, replay forward) → divergent-but-valid
 > continuation, with side effects recorded-and-mocked. No product UI yet.
 
-See [`SPEC.md`](./SPEC.md) for the product, [`PLAN.md`](./PLAN.md) for the roadmap, and
-[`CLAUDE.md`](./CLAUDE.md) for conventions.
+See [`DESIGN.md`](./DESIGN.md) for how the engine works and why (the portfolio signal),
+[`INTEGRATION.md`](./INTEGRATION.md) for the agent contract, [`SPEC.md`](./SPEC.md) for the
+product, [`PLAN.md`](./PLAN.md) for the roadmap, and [`CLAUDE.md`](./CLAUDE.md) for conventions.
 
 ## Quickstart
 
@@ -93,5 +94,6 @@ contract: tool-loop adapter, per-tool opt-in live re-exec, Anthropic SDK adapter
 CLI, proven on a **second agent with no engine changes**). Phase 2 (the money demo): the
 `glassbox dev` daemon + Next.js debugger UI — open a recorded run in the browser, scrub it, fork a
 step with an edited prompt, and see the divergent branch. `pnpm i && pnpm verify` is green from a
-fresh clone; the daemon API and UI proxy are verified end to end. Next is
-[Phase 3](./PLAN.md): local packaging + open-source polish.
+fresh clone; the daemon API and UI proxy are verified end to end. **Phase 3** (packaging +
+open-source) is underway: the design write-up, integration contract, license, and contributing
+guide are in; a demo GIF and making the repo public are the remaining steps.
