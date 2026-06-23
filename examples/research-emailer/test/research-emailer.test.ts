@@ -53,6 +53,15 @@ describe('research-emailer: the four thesis properties', () => {
     expect(email.type === 'tool' && email.wasRealEffect).toBe(true);
   });
 
+  it('record: a topic containing double-quotes still emails the right recipient (parseTask regression)', async () => {
+    const { agent } = record();
+    const input = { topic: 'the "alignment" problem', recipient: 'team@x.com' };
+    const { trace } = await runAgent({ agent, input, mode: { kind: 'record' }, client: stubModel(), modelId: 'stub', ...META });
+    const email = emailStep(trace);
+    expect((email.input as { to: string }).to).toBe('team@x.com');
+    expect((email.input as { subject: string }).subject).toContain('alignment');
+  });
+
   it('replay: bit-identical, LLM not re-called, side effect NOT re-fired', async () => {
     const rec = record();
     const { trace: original } = await runAgent({ agent: rec.agent, input: INPUT, mode: { kind: 'record' }, client: stubModel(), modelId: 'stub', ...META });

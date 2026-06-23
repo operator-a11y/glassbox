@@ -133,6 +133,7 @@ async function cmdFork(flags: Flags): Promise<void> {
     fail(`--step must be an integer in [0, ${original.steps.length - 1}]`);
   }
   const system = flags['system'] ?? mutatedPrompt('enthusiastic');
+  const promptChanged = system !== original.config.systemPrompt;
   const { client, modelId, usingStub } = await selectModel();
   const sink = memoryOutboxSink();
   const agent = buildAgent(sink);
@@ -152,7 +153,11 @@ async function cmdFork(flags: Flags): Promise<void> {
 
   header('FORK');
   line(`fork at step    #${step}   (${describeStepType(original, step)})`);
-  line(`mutation        system prompt → TONE changed`);
+  line(
+    promptChanged
+      ? `mutation        system prompt edited`
+      : `mutation        none — system prompt unchanged (suffix re-runs live but won't diverge from the prompt)`,
+  );
   line(`model (suffix)  ${usingStub ? 'stub (deterministic, offline)' : modelId}`);
   line(`pre-fork        ✓ identical to the original (steps 0..${step - 1} untouched)`);
   line(`outbox.json     unchanged (${before} → ${after} emails)`);
@@ -198,11 +203,12 @@ function parseFlags(argv: string[]): Flags {
     if (arg.startsWith('--')) {
       const key = arg.slice(2);
       const next = argv[i + 1];
+      // Every flag here takes a value; a valueless flag is treated as not-provided
+      // (rather than the literal "true"), so `--system` with no value falls back to
+      // the default instead of silently using "true" as the prompt.
       if (next !== undefined && !next.startsWith('--')) {
         flags[key] = next;
         i++;
-      } else {
-        flags[key] = 'true';
       }
     }
   }

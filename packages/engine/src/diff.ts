@@ -102,6 +102,15 @@ export function comparePrefix(original: Trace, forked: Trace, k: number): TraceC
   const fd = forked.nondeterminism.filter((d) => d.stepIdx < k);
   if (!eq(od, fd)) differences.push(`pre-fork nondeterminism differs`);
 
+  // The "restore the state at step k" guarantee: the state ENTERING the fork point
+  // must be byte-identical (only the system prompt and step k's output may diverge).
+  // For k === 0 nothing is preserved — the whole run is live — so this is skipped.
+  if (k > 0 && k < original.steps.length && k < forked.steps.length) {
+    if (!eq(original.steps[k]!.stateBefore, forked.steps[k]!.stateBefore)) {
+      differences.push(`fork-point state (stateBefore[${k}]) was not preserved`);
+    }
+  }
+
   return { identical: differences.length === 0, differences };
 }
 

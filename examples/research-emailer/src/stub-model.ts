@@ -71,7 +71,9 @@ function extractTone(system: string): string {
 function parseTask(messages: JsonValue[]): { topic: string; recipient: string } {
   const first = messages[0];
   const text = isObj(first) && typeof first['content'] === 'string' ? first['content'] : '';
-  const m = text.match(/topic "([^"]+)" and email a concise summary to (.+?)\.?$/);
+  // Greedy topic capture + the fixed literal suffix anchors the boundary, so a
+  // topic that itself contains double-quotes is parsed correctly.
+  const m = text.match(/topic "(.+)" and email a concise summary to (.+?)\.?$/);
   return { topic: m ? m[1]! : 'the topic', recipient: m ? m[2]! : 'someone' };
 }
 

@@ -14,3 +14,6 @@ examples/research-emailer/outbox.json
 
 # Source-docs bundle (not part of the repo)
 glassbox-docs.zip
+
+# Local Claude Code session state
+.claude/

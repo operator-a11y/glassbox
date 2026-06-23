@@ -67,6 +67,14 @@ export async function runAgent(opts: RunOptions): Promise<RunResult> {
   if ((mode.kind === 'replay' || mode.kind === 'fork') && !source) {
     throw new Error(`runAgent: mode "${mode.kind}" requires a source trace`);
   }
+  if (mode.kind === 'fork' && source) {
+    const maxStep = source.steps.length - 1;
+    if (!Number.isInteger(mode.fromStep) || mode.fromStep < 0 || mode.fromStep > maxStep) {
+      throw new Error(
+        `runAgent: fork fromStep ${mode.fromStep} is out of range [0, ${maxStep}] — there is no step to fork at`,
+      );
+    }
+  }
 
   const originalSystem = source ? source.config.systemPrompt : agent.systemPrompt;
   const maxSteps = opts.maxSteps ?? source?.config.maxSteps ?? DEFAULT_MAX_STEPS;
