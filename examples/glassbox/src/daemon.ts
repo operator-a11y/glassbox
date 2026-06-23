@@ -27,7 +27,17 @@ const daemon = createDaemon({
   store,
 });
 
-const port = await daemon.listen(PORT);
+let port: number;
+try {
+  port = await daemon.listen(PORT);
+} catch (err) {
+  if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+    console.error(`glassbox daemon: port ${PORT} is already in use — set GLASSBOX_PORT to a free port.`);
+    store.close();
+    process.exit(1);
+  }
+  throw err;
+}
 console.log(`glassbox daemon → http://127.0.0.1:${port}  (db: ${DB_PATH})`);
 
 const shutdown = (): void => {

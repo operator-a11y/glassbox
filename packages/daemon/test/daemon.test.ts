@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { request } from 'node:http';
 import { memoryTraceStore, toolLoopAgent } from '@glassbox/engine';
 import type { AgentRegistration, ModelClient } from '@glassbox/engine';
 import { createDaemon } from '../src/index.ts';
@@ -86,4 +87,27 @@ describe('daemon REST API', () => {
     expect((await call('GET', '/api/traces/does-not-exist')).status).toBe(404);
     expect((await call('GET', '/api/nope')).status).toBe(404);
   });
+
+  it('security guard: rejects cross-origin and non-local Host, allows localhost', async () => {
+    expect(await rawStatus('/api/health', { origin: 'https://evil.com' })).toBe(403); // cross-origin read
+    expect(await rawStatus('/api/health', { host: 'evil.com' })).toBe(403); // DNS-rebinding
+    expect(await rawStatus('/api/health', { origin: 'http://localhost:3000' })).toBe(200); // the UI origin
+    expect(await rawStatus('/api/health', {})).toBe(200); // server-side (no Origin)
+  });
 });
+
+// Raw request so we can set Host/Origin (which fetch forbids).
+function rawStatus(path: string, headers: Record<string, string>): Promise<number> {
+  const u = new URL(base + path);
+  return new Promise((resolve, reject) => {
+    const req = request(
+      { hostname: u.hostname, port: u.port, path: u.pathname, method: 'GET', headers },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode ?? 0);
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}

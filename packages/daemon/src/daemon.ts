@@ -18,7 +18,7 @@
 import { createServer } from 'node:http';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { comparePrefix, compareTraces, runAgent } from '@glassbox/engine';
-import type { AgentRegistration, JsonValue, ModelClient, Trace, TraceStore } from '@glassbox/engine';
+import type { AgentDefinition, AgentRegistration, JsonValue, ModelClient, Trace, TraceStore } from '@glassbox/engine';
 
 export interface DaemonConfig {
   agents: Record<string, AgentRegistration>;
@@ -75,7 +75,24 @@ export function createDaemon(config: DaemonConfig): Daemon {
 }
 
 async function handle(config: DaemonConfig, req: IncomingMessage, res: ServerResponse): Promise<void> {
-  setCors(res);
+  // Local-first guard. The daemon has no auth, so we must stop other origins the
+  // browser can reach: reject a non-localhost Host (DNS-rebinding) and any request
+  // carrying a cross-origin Origin (cross-site reads AND CSRF of the side-effecting
+  // POST routes — CORS alone would not block the latter). The Next.js proxy and a
+  // direct localhost UI both pass (server-side fetch has no Origin).
+  if (!hostAllowed(req.headers.host)) {
+    return sendJson(res, 403, { error: 'forbidden: non-local Host header' });
+  }
+  const origin = req.headers.origin;
+  if (origin && !originAllowed(origin)) {
+    return sendJson(res, 403, { error: 'forbidden: cross-origin request' });
+  }
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
   if (req.method === 'OPTIONS') {
     res.writeHead(204).end();
     return;
@@ -133,10 +150,7 @@ async function record(config: DaemonConfig, body: JsonValue, res: ServerResponse
   const reg = config.agents[agentName];
   if (!reg) throw new HttpError(400, `unknown agent "${agentName}" (have: ${Object.keys(config.agents).join(', ')})`);
 
-  const agent = reg.build();
-  if (agent.name !== agentName) {
-    throw new HttpError(500, `agent "${agentName}" builds as "${agent.name}"`);
-  }
+  const agent = buildChecked(reg, agentName);
   const sel = await reg.client();
   const { trace } = await runAgent({ agent, input: input ?? {}, mode: { kind: 'record' }, client: sel.client, modelId: sel.modelId });
   config.store.save(trace);
@@ -150,7 +164,7 @@ async function replay(config: DaemonConfig, id: string, res: ServerResponse): Pr
   if (!reg) throw new HttpError(409, `agent "${original.config.agent}" is not registered`);
 
   const { trace: replayed } = await runAgent({
-    agent: reg.build(),
+    agent: buildChecked(reg, original.config.agent),
     input: original.input,
     mode: { kind: 'replay' },
     client: throwingClient,
@@ -178,7 +192,7 @@ async function fork(config: DaemonConfig, id: string, body: JsonValue, res: Serv
 
   const sel = await reg.client();
   const { trace: forked } = await runAgent({
-    agent: reg.build(),
+    agent: buildChecked(reg, original.config.agent),
     input: original.input,
     mode: { kind: 'fork', fromStep, mutation: { system } },
     client: sel.client,
@@ -191,6 +205,12 @@ async function fork(config: DaemonConfig, id: string, body: JsonValue, res: Serv
   sendJson(res, 200, { trace: forked, fromStep, prefixIdentical: cmp.identical, differences: cmp.differences });
 }
 
+function buildChecked(reg: AgentRegistration, name: string): AgentDefinition {
+  const agent = reg.build();
+  if (agent.name !== name) throw new HttpError(500, `agent "${name}" builds as "${agent.name}" — registry key must equal AgentDefinition.name`);
+  return agent;
+}
+
 function defaultForkStep(trace: Trace): number {
   const sideEffect = trace.steps.findIndex((s) => s.type === 'tool' && s.kind === 'side_effecting');
   if (sideEffect > 0) return sideEffect - 1;
@@ -200,10 +220,12 @@ function defaultForkStep(trace: Trace): number {
 
 // ---- http helpers -----------------------------------------------------------
 
-function setCors(res: ServerResponse): void {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+function hostAllowed(host: string | undefined): boolean {
+  return !!host && /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(host);
+}
+
+function originAllowed(origin: string): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(origin);
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {

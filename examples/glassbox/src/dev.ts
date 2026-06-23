@@ -14,18 +14,9 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-function run(label: string, args: string[]): ChildProcess {
-  const child = spawn('pnpm', args, { cwd: ROOT, stdio: 'inherit', detached: true });
-  child.on('error', (err) => console.error(`[${label}] ${err.message}`));
-  return child;
-}
-
-const children: ChildProcess[] = [
-  run('daemon', ['exec', 'tsx', 'examples/glassbox/src/daemon.ts']),
-  run('web', ['--filter', '@glassbox/web', 'dev']),
-];
-
 let shuttingDown = false;
+let exitCode = 0;
+
 function shutdown(): void {
   if (shuttingDown) return;
   shuttingDown = true;
@@ -38,11 +29,28 @@ function shutdown(): void {
       }
     }
   }
-  process.exit(0);
+  process.exit(exitCode);
 }
+
+function run(label: string, args: string[]): ChildProcess {
+  const child = spawn('pnpm', args, { cwd: ROOT, stdio: 'inherit', detached: true });
+  child.on('error', (err) => console.error(`[${label}] ${err.message}`));
+  // If either child dies, tear the other down — but surface WHICH died and with
+  // what status, and propagate a non-zero exit so a crash isn't masked as success.
+  child.on('exit', (code, signal) => {
+    if (!shuttingDown) console.error(`[${label}] exited (code=${code ?? 'null'} signal=${signal ?? 'null'}) — stopping`);
+    if (exitCode === 0) exitCode = signal ? 1 : (code ?? 0);
+    shutdown();
+  });
+  return child;
+}
+
+const children: ChildProcess[] = [
+  run('daemon', ['exec', 'tsx', 'examples/glassbox/src/daemon.ts']),
+  run('web', ['--filter', '@glassbox/web', 'dev']),
+];
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
-for (const c of children) c.on('exit', () => shutdown());
 
 console.log('glassbox dev → daemon :4319 + web http://localhost:3000  (Ctrl-C to stop)');
