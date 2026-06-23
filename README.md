@@ -31,6 +31,18 @@ Everything runs offline against a deterministic stub model. Set `ANTHROPIC_API_K
 (and optionally `GLASSBOX_MODEL_ID`, default `claude-sonnet-4-6`) to record and fork against the
 real model instead; replay never calls the model.
 
+## The debugger UI
+
+```bash
+pnpm dev     # local daemon (:4319) + Next.js debugger (http://localhost:3000)
+```
+
+Open <http://localhost:3000>: record a run, scrub its **timeline**, inspect any step
+(prompt / tool I/O / state / captured nondeterminism), hit **Replay** for a
+`bit-identical ✓`, then **Fork** — edit the system prompt at a step and watch the
+divergent branch render side by side, with side effects SIMULATED. The web app is a
+thin client over the daemon's REST API; the engine is never bundled into the browser.
+
 ## The `glassbox` CLI — two agents, one engine
 
 The generic CLI drives record/replay/fork over a SQLite trace store for **any**
@@ -53,9 +65,11 @@ Instrumenting a new agent is config-only via the tool-loop adapter — see
 ```
 packages/engine            record-replay-fork core, trace model, tool-loop adapter,
                            Anthropic SDK adapter, SQLite store, generic CLI (pure, zod-validated)
+packages/daemon            local REST API over the engine (record/list/replay/fork)
+apps/web                   Next.js debugger UI (thin client over the daemon)
 examples/research-emailer  demo agent #1: topic → search → read → draft → send_email → confirm
 examples/support-triage    demo agent #2: ticket → classify → lookup → draft → create_ticket → confirm
-examples/glassbox          the glassbox CLI entrypoint registering both agents over SQLite
+examples/glassbox          CLI + daemon + dev entrypoints registering both agents over SQLite
 INTEGRATION.md             the integration contract (raw + tool-loop adapter)
 SPEC.md PLAN.md CLAUDE.md  product, roadmap, conventions
 ```
@@ -74,8 +88,10 @@ SPEC.md PLAN.md CLAUDE.md  product, roadmap, conventions
 
 ## Status
 
-**Phase 0** (engine spike) and **Phase 1** (engine hardening + integration contract) are complete:
-the documented integration contract + tool-loop adapter, per-tool opt-in live re-execution, an
-Anthropic SDK adapter, SQLite persistence, and the generic `glassbox` CLI — proven by instrumenting
-a **second, different agent with no engine changes**. `pnpm i && pnpm verify` is green from a fresh
-clone. Next is [Phase 2](./PLAN.md): the debugger web UI over the same engine.
+**Phases 0–2 are complete.** Phase 0 (engine spike) and Phase 1 (hardening + integration
+contract: tool-loop adapter, per-tool opt-in live re-exec, Anthropic SDK adapter, SQLite, generic
+CLI, proven on a **second agent with no engine changes**). Phase 2 (the money demo): the
+`glassbox dev` daemon + Next.js debugger UI — open a recorded run in the browser, scrub it, fork a
+step with an edited prompt, and see the divergent branch. `pnpm i && pnpm verify` is green from a
+fresh clone; the daemon API and UI proxy are verified end to end. Next is
+[Phase 3](./PLAN.md): local packaging + open-source polish.
