@@ -91,4 +91,6 @@ export {
 } from './diff.ts';
 export type { TraceComparison } from './diff.ts';
 
-export { saveTrace, loadTrace } from './store.ts';
+export { saveTrace, loadTrace, memoryTraceStore, traceSummary } from './store.ts';
+export type { TraceStore, TraceSummary } from './store.ts';
+export { sqliteTraceStore } from './store-sqlite.ts';
