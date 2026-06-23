@@ -1,0 +1,26 @@
+{
+  "name": "glassbox",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic record-replay-fork engine for agent runs (Phase 0 spike).",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "pnpm typecheck && pnpm test",
+    "record": "tsx examples/research-emailer/src/cli.ts record",
+    "replay": "tsx examples/research-emailer/src/cli.ts replay",
+    "fork": "tsx examples/research-emailer/src/cli.ts fork",
+    "demo": "tsx examples/research-emailer/src/cli.ts demo"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}
