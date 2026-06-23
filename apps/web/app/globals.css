@@ -1,0 +1,16 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: #09090b;
+  color: #e4e4e7;
+}
+
+/* Monospace surfaces for JSON / prompts. */
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Cascadia Code', monospace;
+}
