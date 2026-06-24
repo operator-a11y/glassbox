@@ -9,8 +9,9 @@ Record everything an agent does, replay it exactly, and fork from any step to ex
 
 See [`DESIGN.md`](./DESIGN.md) for how the engine works and why (the portfolio signal),
 [`INTEGRATION.md`](./INTEGRATION.md) for the agent contract, [`FIREWALL.md`](./FIREWALL.md) for the
-MCP security layer, [`EVALS.md`](./EVALS.md) for the evals + regression gate, [`SPEC.md`](./SPEC.md)
-for the product, [`PLAN.md`](./PLAN.md) for the roadmap, and [`CLAUDE.md`](./CLAUDE.md) for conventions.
+MCP security layer, [`EVALS.md`](./EVALS.md) for the evals + regression gate, [`PROBES.md`](./PROBES.md) for probes +
+the fork-to-investigate counterfactual, [`SPEC.md`](./SPEC.md) for the product, [`PLAN.md`](./PLAN.md)
+for the roadmap, and [`CLAUDE.md`](./CLAUDE.md) for conventions.
 
 ## Quickstart
 
@@ -63,6 +64,21 @@ pnpm glassbox eval    --agent support-triage                        # run the ag
 `runEvals` scores cases with an assertion DSL (`toolCalled`, `noRealSideEffects`, `finalContains`,
 …) that composes with the firewall. See [`EVALS.md`](./EVALS.md).
 
+## Probes — the fork-to-investigate counterfactual
+
+The capability only a record-replay-fork engine can offer: ask *"what if I changed X at step k?"*
+and get both the behavior change and the security change.
+
+```bash
+pnpm glassbox investigate --trace <id> --system "…STYLE: standard. REDACT secrets from tickets."
+#   behavior: 2 step change(s)
+#   ⤓ downgraded: Anthropic API key exfiltration in "create_ticket"  (critical → high)
+```
+
+Adding a redaction instruction is shown to **stop the critical exfiltration** while the firewall is
+honest about the residual risk — by forking the recorded run and re-scanning. Plus read-only
+`watch`/`assert` probes (`pnpm glassbox probe --trace <id>`). See [`PROBES.md`](./PROBES.md).
+
 ## The debugger UI
 
 ```bash
@@ -100,6 +116,7 @@ packages/engine            record-replay-fork core, trace model, tool-loop adapt
 packages/daemon            local REST API over the engine (record/list/replay/fork/scan)
 packages/firewall          MCP firewall: secret/injection/taint audit + live guard
 packages/evals             evals + regression gate (semantic run diff + assertions)
+packages/probes            probes: read-only watch/assert + fork-to-investigate counterfactuals
 apps/web                   Next.js debugger UI (thin client over the daemon)
 examples/research-emailer  demo agent #1: topic → search → read → draft → send_email → confirm
 examples/support-triage    demo agent #2: ticket → classify → lookup → draft → create_ticket → confirm
@@ -127,7 +144,8 @@ contract: tool-loop adapter, per-tool opt-in live re-exec, Anthropic SDK adapter
 CLI, proven on a **second agent with no engine changes**). Phase 2 (the money demo): the
 `glassbox dev` daemon + Next.js debugger UI — open a recorded run in the browser, scrub it, fork a
 step with an edited prompt, and see the divergent branch. Phase 3 (packaging + open-source) shipped
-the design write-up, integration contract, license, and contributing guide. Two **later pillars** are also built on the same engine: the **MCP firewall**
-(secret/injection/taint audit + live guard) and the **evals + regression gate** (semantic run diff
-+ assertion scoring). `pnpm i && pnpm verify` is green from a fresh clone; the daemon, UI, firewall,
-and evals are verified end to end.
+the design write-up, integration contract, license, and contributing guide. Three **later pillars** are also built on the same engine: the **MCP firewall**
+(secret/injection/taint audit + live guard), the **evals + regression gate** (semantic run diff +
+assertion scoring), and **probes** (read-only watch/assert + the fork-to-investigate counterfactual).
+That is the entire `PLAN.md` roadmap except the editor extension (a thin VS Code webview over this
+same web app). `pnpm i && pnpm verify` is green from a fresh clone; every layer is verified end to end.
