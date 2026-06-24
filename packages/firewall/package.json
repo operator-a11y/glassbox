@@ -1,0 +1,16 @@
+{
+  "name": "@glassbox/firewall",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP firewall / observability: secret + injection scanning and policy over the capture layer.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@glassbox/engine": "workspace:*"
+  }
+}
