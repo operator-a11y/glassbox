@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { runAgent, toolLoopAgent } from '@glassbox/engine';
 import type { AgentDefinition, JsonValue, ModelClient, ModelClientRequest, ModelResponse } from '@glassbox/engine';
 import { scanTrace } from '@glassbox/firewall';
-import { investigate, runProbes, watchToolCalls, assertSideEffectsTracked, assertArgsUnder } from '../src/index.ts';
+import { investigate, runProbes, watchToolCalls, assertSideEffectsTracked, assertArgsUnder, type Probe } from '../src/index.ts';
 
 const SECRET = 'sk-ant-api03-' + 'A'.repeat(28);
 
@@ -94,5 +94,16 @@ describe('runProbes (read-only watch/assert)', () => {
     const report = runProbes(trace, [assertArgsUnder(5)]); // unrealistically small budget
     expect(report.ok).toBe(false);
     expect(report.assertionsFailed).toBeGreaterThan(0);
+  });
+
+  it('isolates a throwing probe instead of aborting the whole report', async () => {
+    const agent = leakyAgent();
+    const client = stubModel();
+    const { trace } = await runAgent({ agent, input: { payload: 'hi' }, mode: { kind: 'record' }, client, modelId: 'stub' });
+    const thrower: Probe = { name: 'boom', on: 'any', mode: 'assert', run: () => { throw new Error('boom'); } };
+    const report = runProbes(trace, [watchToolCalls(), thrower]);
+    expect(report.hits.some((h) => h.probe === 'watch:tool-calls')).toBe(true); // good probe still ran
+    expect(report.hits.some((h) => h.probe === 'boom' && h.ok === false && h.note.includes('errored'))).toBe(true);
+    expect(report.ok).toBe(false);
   });
 });

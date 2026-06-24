@@ -163,6 +163,9 @@ async function cmdInvestigate(args: string[], store: TraceStore): Promise<void> 
   if (!reg) return usageErr(`agent "${original.config.agent}" is not registered`);
 
   const fromStep = stepArg != null ? Number.parseInt(stepArg, 10) : 0;
+  if (!Number.isInteger(fromStep) || fromStep < 0 || fromStep > original.steps.length - 1) {
+    return usageErr(`--step must be an integer in [0, ${original.steps.length - 1}]`);
+  }
   const sel = await reg.client();
   const { investigation: inv, fork } = await investigate({
     original,
@@ -180,6 +183,8 @@ async function cmdInvestigate(args: string[], store: TraceStore): Promise<void> 
   for (const sc of inv.severityChanges) console.log(`  ⤓ downgraded: ${sc.before.message}  (${sc.before.severity} → ${sc.after.severity})`);
   for (const f of inv.introduced) console.log(`  ⚠ introduced: [${f.severity}] ${f.message}`);
   if (!inv.resolved.length && !inv.severityChanges.length && !inv.introduced.length) console.log('  firewall findings: unchanged');
+  // Gate: a counterfactual that INTRODUCES a critical/high risk fails.
+  process.exitCode = inv.introduced.some((f) => f.severity === 'critical' || f.severity === 'high') ? 1 : 0;
 }
 
 function cmdProbe(args: string[], store: TraceStore): void {

@@ -44,7 +44,13 @@ export function runProbes(trace: Trace, probes: Probe[]): ProbeReport {
     for (const p of probes) {
       if (p.on !== 'any' && p.on !== step.type) continue;
       if (p.when && !p.when(step)) continue;
-      const r = p.run({ step, trace });
+      // One faulty probe must not abort the whole report — isolate it as a failed check.
+      let r: { ok?: boolean; note: string };
+      try {
+        r = p.run({ step, trace });
+      } catch (err) {
+        r = { ok: p.mode === 'assert' ? false : undefined, note: `probe errored: ${err instanceof Error ? err.message : String(err)}` };
+      }
       hits.push({ probe: p.name, stepIdx: step.idx, mode: p.mode, ok: r.ok, note: r.note });
     }
   }

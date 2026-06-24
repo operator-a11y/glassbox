@@ -79,8 +79,11 @@ export async function investigate(opts: {
 }
 
 // Identity for correlating a threat across the two runs. `match` carries the secret
-// fingerprint / the injection phrase, so the same threat correlates across runs;
-// severity/location are tracked separately (they are the consequence being measured).
+// fingerprint / injection phrase, so a secret/injection correlates by value (and its
+// severity change is the consequence we measure). Taint findings, however, are one
+// per (untrusted value, SINK) and share a value-only match, so they must include the
+// sink location or two sinks would collide and a half-fixed leak would read "unchanged".
 function findingKey(f: Finding): string {
-  return `${f.kind}:${f.rule}:${f.match}`;
+  const base = `${f.kind}:${f.rule}:${f.match}`;
+  return f.kind === 'taint' ? `${base}:${f.location.pointer}` : base;
 }
