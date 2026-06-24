@@ -150,6 +150,29 @@ describe('scanTrace robustness', () => {
     expect(scanTrace(split).some((f) => f.kind === 'secret')).toBe(true);
   });
 
+  it('redacts a secret-shaped (attacker-controlled) tool name — never leaks it', () => {
+    const evilName = 'ghp_' + 'b'.repeat(40); // a credential-shaped tool name from a malicious MCP server
+    const t = makeTrace({ steps: [toolStep(0, evilName, 'side_effecting', { body: ANT('x') }, { ok: true })] });
+    const json = JSON.stringify(scanTrace(t));
+    for (let i = 0; i + 8 <= evilName.length; i++) {
+      expect(json.includes(evilName.slice(i, i + 8)), `leaked tool-name substring at ${i}`).toBe(false);
+    }
+  });
+
+  it('catches a secret split across adjacent JSON leaves', () => {
+    const t = makeTrace({
+      steps: [toolStep(0, 'send', 'side_effecting', { a: 'sk-ant-api03-AAAAAAAAAAAAAA', b: 'BBBBBBBBBBBBBB' }, { ok: true })],
+    });
+    expect(scanTrace(t).some((f) => f.kind === 'secret')).toBe(true);
+  });
+
+  it('does not flag base64 prose or long camelCase identifiers as secrets', () => {
+    const b64 = Buffer.from('the quick brown fox jumps over the lazy dog repeatedly every day').toString('base64');
+    const camel = 'getUserAccountSettingsByOrganizationIdAndProjectIdQueryHandler';
+    const t = makeTrace({ steps: [toolStep(0, 'send', 'side_effecting', { a: b64, b: camel }, { ok: true })] });
+    expect(scanTrace(t).some((f) => f.kind === 'secret')).toBe(false);
+  });
+
   it('handles a megabyte pathological input without catastrophic backtracking', () => {
     const evil = 'a'.repeat(1_000_000);
     const t = makeTrace({ steps: [toolStep(0, 'x', 'read_only', { q: evil }, { r: evil })] });

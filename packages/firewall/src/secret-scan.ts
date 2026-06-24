@@ -64,5 +64,27 @@ export function scanSecrets(text: string): SecretMatch[] {
 function isHighEntropySecret(tok: string): boolean {
   if (alphabetSize(tok) < 20) return false; // hex hashes, decimal ids, repetitive strings
   if (HEX_ONLY.test(tok)) return false; // md5/sha/uuid-ish — usually benign
-  return shannonEntropy(tok) >= 4.0;
+  if (/[a-z]{9,}/.test(tok)) return false; // long lowercase run = word/identifier, not a key
+  if (looksLikeEncodedText(tok)) return false; // base64 of natural-language prose
+  return shannonEntropy(tok) >= 4.2;
+}
+
+/** A base64 token that decodes to mostly printable text is encoded prose, not a key. */
+function looksLikeEncodedText(tok: string): boolean {
+  if (tok.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(tok)) return false;
+  let decoded: string;
+  try {
+    decoded = Buffer.from(tok, 'base64').toString('utf8');
+  } catch {
+    return false;
+  }
+  if (decoded.length < 6) return false;
+  let printable = 0;
+  let letters = 0;
+  for (const c of decoded) {
+    const code = c.charCodeAt(0);
+    if (code >= 32 && code < 127) printable++;
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c === ' ') letters++;
+  }
+  return printable / decoded.length > 0.9 && letters / decoded.length > 0.6;
 }

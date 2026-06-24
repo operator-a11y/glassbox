@@ -11,9 +11,14 @@
 import type { JsonValue, ToolKind } from '@glassbox/engine';
 import type { Action, CallVerdict, Finding, Provenance, Severity } from './types.ts';
 import { normalize } from './normalize.ts';
-import { neutralizePhrase, redactSecret } from './redact.ts';
+import { neutralizePhrase, redactSecret, secretFingerprint } from './redact.ts';
 import { scanSecrets } from './secret-scan.ts';
 import { scanInjections } from './injection-scan.ts';
+
+/** Tool names can be attacker-controlled; redact a credential-shaped name. */
+function safeName(name: string): string {
+  return scanSecrets(normalize(name)).length > 0 ? `⟨tool sha256:${secretFingerprint(name)}⟩` : name;
+}
 
 export interface PolicyRule {
   tool?: string;
@@ -107,21 +112,23 @@ function flatten(value: JsonValue): string {
 }
 
 function secretFinding(call: ToolCall, rule: string, label: string, secret: string, severity: Severity, provenance: Provenance, sub: string): Finding {
+  const tool = safeName(call.tool);
   return {
     kind: 'secret', severity, rule: `secret.${rule}`,
     message: provenance === 'tool-args' && call.kind === 'side_effecting'
-      ? `possible exfiltration: ${label} in args of side-effecting tool "${call.tool}"`
+      ? `possible exfiltration: ${label} in args of side-effecting tool "${tool}"`
       : `${label} in ${provenance}`,
-    location: { stepIdx: null, pointer: `live:${call.tool}${sub}`, stepType: 'tool', toolName: call.tool },
+    location: { stepIdx: null, pointer: `live:${tool}${sub}`, stepType: 'tool', toolName: tool },
     provenance, match: redactSecret(secret, label),
   };
 }
 
 function injectionFinding(call: ToolCall, rule: string, phrase: string, severity: Severity, provenance: Provenance, sub: string): Finding {
+  const tool = safeName(call.tool);
   return {
     kind: 'injection', severity, rule: `injection.${rule}`,
     message: provenance === 'tool-result' ? 'prompt-injection in a tool result (possible MCP hijack)' : `prompt-injection pattern in ${provenance}`,
-    location: { stepIdx: null, pointer: `live:${call.tool}${sub}`, stepType: 'tool', toolName: call.tool },
+    location: { stepIdx: null, pointer: `live:${tool}${sub}`, stepType: 'tool', toolName: tool },
     provenance, match: neutralizePhrase(phrase),
   };
 }

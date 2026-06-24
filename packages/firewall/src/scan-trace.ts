@@ -59,8 +59,11 @@ export function scanTraceResult(trace: Trace, options: ScanOptions = {}): ScanRe
 
   for (const s of surfaces) {
     const text = normalize(s.leaves.join('\n'));
+    // Separator-free join for secrets so a key split across adjacent leaves is still caught;
+    // injection keeps the '\n' join to avoid cross-leaf phrase false positives.
+    const secretText = normalize(s.leaves.join(''));
 
-    for (const m of scanSecrets(text)) {
+    for (const m of scanSecrets(secretText)) {
       if (engineIds.has(m.secret)) continue;
       const sev = secretSeverity(s);
       candidates.push({
@@ -118,9 +121,15 @@ function injectionSeverity(s: Surface): Severity {
   return 'low'; // user-input / model-input / state — expected or noise
 }
 
+/** toolName is attacker-controlled (an MCP server names its own tools), so a
+ *  credential-shaped name must be redacted before it ever enters a finding. */
+function safeToolName(name: string): string {
+  return scanSecrets(normalize(name)).length > 0 ? `⟨tool sha256:${secretFingerprint(name)}⟩` : name;
+}
+
 function secretMessage(s: Surface, label: string): string {
   if (s.provenance === 'tool-args' && s.toolKind === 'side_effecting') {
-    return `possible exfiltration: ${label} in args of side-effecting tool "${s.toolName ?? '?'}"`;
+    return `possible exfiltration: ${label} in args of side-effecting tool "${safeToolName(s.toolName ?? '?')}"`;
   }
   if (s.provenance === 'final') return `${label} leaked into the final output`;
   if (s.provenance === 'system' || s.provenance === 'config') return `${label} embedded in the system prompt`;
@@ -136,7 +145,7 @@ function injectionMessage(s: Surface): string {
 function locationOf(s: Surface): FindingLocation {
   const loc: FindingLocation = { stepIdx: s.stepIdx, pointer: s.pointer };
   if (s.stepType) loc.stepType = s.stepType;
-  if (s.toolName) loc.toolName = s.toolName;
+  if (s.toolName) loc.toolName = safeToolName(s.toolName);
   return loc;
 }
 
@@ -167,7 +176,7 @@ function taintCandidates(surfaces: Surface[], userInputText: string): Candidate[
           kind: 'taint',
           severity: sev,
           rule: 'taint.untrusted-to-sink',
-          message: `untrusted tool-result data reaches side-effecting tool "${s.toolName ?? '?'}"${dangerous ? ' carrying a secret/injection' : ''}`,
+          message: `untrusted tool-result data reaches side-effecting tool "${safeToolName(s.toolName ?? '?')}"${dangerous ? ' carrying a secret/injection' : ''}`,
           location: locationOf(s),
           provenance: 'tool-args',
           match: `⟨len ${u.length}, sha256:${secretFingerprint(u)}⟩`,
