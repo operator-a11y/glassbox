@@ -10,6 +10,7 @@
   "dependencies": {
     "@glassbox/daemon": "workspace:*",
     "@glassbox/engine": "workspace:*",
+    "@glassbox/evals": "workspace:*",
     "@glassbox/firewall": "workspace:*",
     "@glassbox/example-research-emailer": "workspace:*",
     "@glassbox/example-support-triage": "workspace:*"

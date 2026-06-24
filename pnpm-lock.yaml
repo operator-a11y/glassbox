@@ -60,6 +60,9 @@ importers:
       '@glassbox/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@glassbox/evals':
+        specifier: workspace:*
+        version: link:../../packages/evals
       '@glassbox/example-research-emailer':
         specifier: workspace:*
         version: link:../research-emailer
