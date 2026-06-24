@@ -106,6 +106,12 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  packages/evals:
+    dependencies:
+      '@glassbox/engine':
+        specifier: workspace:*
+        version: link:../engine
+
   packages/firewall:
     dependencies:
       '@glassbox/engine':

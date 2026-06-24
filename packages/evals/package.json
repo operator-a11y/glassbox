@@ -1,0 +1,16 @@
+{
+  "name": "@glassbox/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Evals + regression gate over the engine: semantic run diff, assertions, batch scoring.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@glassbox/engine": "workspace:*"
+  }
+}
