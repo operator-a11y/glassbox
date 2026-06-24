@@ -11,6 +11,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDaemon } from '@glassbox/daemon';
 import { sqliteTraceStore } from '@glassbox/engine';
+import { scanTrace } from '@glassbox/firewall';
 import { registration as researchEmailer } from '@glassbox/example-research-emailer';
 import { registration as supportTriage } from '@glassbox/example-support-triage';
 
@@ -25,6 +26,7 @@ const daemon = createDaemon({
     'support-triage': supportTriage(),
   },
   store,
+  scan: (trace) => scanTrace(trace),
 });
 
 let port: number;

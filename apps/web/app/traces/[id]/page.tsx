@@ -6,6 +6,7 @@ import { getTrace, replay, type ReplayResult, type Trace } from '@/lib/api';
 import { Timeline } from '@/components/Timeline';
 import { StepInspector } from '@/components/StepInspector';
 import { ForkPanel } from '@/components/ForkPanel';
+import { FirewallPanel } from '@/components/FirewallPanel';
 
 export default function TracePage() {
   const id = useParams<{ id: string }>().id;
@@ -95,6 +96,13 @@ export default function TracePage() {
           <StepInspector step={step} draws={trace.nondeterminism} />
         </div>
       </div>
+
+      <section className="rounded-lg border border-rose-900/40 bg-rose-950/10 p-4">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-rose-400">
+          Firewall &mdash; secrets · injection · taint
+        </h2>
+        <FirewallPanel traceId={trace.id} onSelectStep={setSelected} />
+      </section>
 
       <section className="rounded-lg border border-amber-900/40 bg-amber-950/10 p-4">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-amber-400">Fork &amp; replay</h2>

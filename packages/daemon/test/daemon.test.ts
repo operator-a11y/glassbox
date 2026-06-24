@@ -29,7 +29,11 @@ function tinyAgent(): AgentRegistration {
 }
 
 const store = memoryTraceStore();
-const daemon = createDaemon({ agents: { tiny: tinyAgent() }, store });
+const daemon = createDaemon({
+  agents: { tiny: tinyAgent() },
+  store,
+  scan: (trace) => [{ severity: 'low', kind: 'policy', message: `scanned ${trace.id}`, location: { stepIdx: null, pointer: '/input' } }],
+});
 let base = '';
 
 beforeAll(async () => {
@@ -86,6 +90,14 @@ describe('daemon REST API', () => {
     expect((await call('POST', '/api/record', { agent: 'nope' })).status).toBe(400);
     expect((await call('GET', '/api/traces/does-not-exist')).status).toBe(404);
     expect((await call('GET', '/api/nope')).status).toBe(404);
+  });
+
+  it('exposes the firewall scan endpoint', async () => {
+    const rec = await call('POST', '/api/record', { agent: 'tiny', input: {} });
+    const id: string = rec.body.trace.id;
+    const scan = await call('GET', `/api/traces/${id}/scan`);
+    expect(scan.status).toBe(200);
+    expect(scan.body.findings[0].message).toBe(`scanned ${id}`);
   });
 
   it('security guard: rejects cross-origin and non-local Host, allows localhost', async () => {

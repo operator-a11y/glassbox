@@ -91,6 +91,17 @@ export interface ForkResult {
   differences: string[];
 }
 
+export interface FirewallFinding {
+  kind: 'secret' | 'injection' | 'taint' | 'policy';
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  rule: string;
+  message: string;
+  location: { stepIdx: number | null; stepType?: 'llm' | 'tool'; toolName?: string; pointer: string };
+  provenance: string;
+  match: string;
+  also?: string[];
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...init,
@@ -114,3 +125,4 @@ export const record = (agent: string, input: unknown) =>
 export const replay = (id: string) => api<ReplayResult>(`/traces/${id}/replay`, { method: 'POST' });
 export const fork = (id: string, opts: { fromStep?: number; system?: string | null; liveTools?: string[] }) =>
   api<ForkResult>(`/traces/${id}/fork`, { method: 'POST', body: JSON.stringify(opts) });
+export const scan = (id: string) => api<{ findings: FirewallFinding[] }>(`/traces/${id}/scan`).then((r) => r.findings);

@@ -23,6 +23,8 @@ import type { AgentDefinition, AgentRegistration, JsonValue, ModelClient, Trace,
 export interface DaemonConfig {
   agents: Record<string, AgentRegistration>;
   store: TraceStore;
+  /** Optional firewall audit. Injected so the daemon stays decoupled from it. */
+  scan?: (trace: Trace) => unknown;
 }
 
 export interface Daemon {
@@ -132,6 +134,12 @@ async function handle(config: DaemonConfig, req: IncomingMessage, res: ServerRes
     }
     if (method === 'GET' && sub === 'forks' && seg.length === 4) {
       return sendJson(res, 200, { traces: config.store.listForks(id) });
+    }
+    if (method === 'GET' && sub === 'scan' && seg.length === 4) {
+      if (!config.scan) throw new HttpError(501, 'firewall scanning is not configured');
+      const trace = config.store.get(id);
+      if (!trace) throw new HttpError(404, `no trace ${id}`);
+      return sendJson(res, 200, { findings: config.scan(trace) });
     }
     if (method === 'POST' && sub === 'replay' && seg.length === 4) {
       return replay(config, id, res);

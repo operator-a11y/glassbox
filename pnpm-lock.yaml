@@ -66,6 +66,9 @@ importers:
       '@glassbox/example-support-triage':
         specifier: workspace:*
         version: link:../support-triage
+      '@glassbox/firewall':
+        specifier: workspace:*
+        version: link:../../packages/firewall
 
   examples/research-emailer:
     dependencies:
