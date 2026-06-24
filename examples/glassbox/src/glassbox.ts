@@ -15,6 +15,7 @@ import { runAgent, runCli, sqliteTraceStore } from '@glassbox/engine';
 import type { AgentDefinition, AgentRegistration, ModelClient, TraceStore } from '@glassbox/engine';
 import { scanTrace } from '@glassbox/firewall';
 import { compareRuns, finalContains, runEvals, statusIs, stepCountIs, toolCalled, type Assertion, type EvalCase } from '@glassbox/evals';
+import { investigate, runProbes, watchToolCalls, assertSideEffectsTracked, assertArgsUnder } from '@glassbox/probes';
 import * as RE from '@glassbox/example-research-emailer';
 import * as ST from '@glassbox/example-support-triage';
 
@@ -74,6 +75,8 @@ try {
   if (cmd === 'scan') cmdScan(argv.slice(1), store);
   else if (cmd === 'regress') await cmdRegress(argv.slice(1), store);
   else if (cmd === 'eval') await cmdEval(argv.slice(1));
+  else if (cmd === 'investigate') await cmdInvestigate(argv.slice(1), store);
+  else if (cmd === 'probe') cmdProbe(argv.slice(1), store);
   else await runCli({ agents: registry, store });
 } finally {
   store.close();
@@ -145,6 +148,50 @@ async function cmdEval(args: string[]): Promise<void> {
     for (const c of r.checks) {
       if (!c.pass) console.log(`      ✗ ${c.name}${c.detail ? ` (${c.detail})` : ''}`);
     }
+  }
+  process.exitCode = report.ok ? 0 : 1;
+}
+
+async function cmdInvestigate(args: string[], store: TraceStore): Promise<void> {
+  const id = flagVal(args, '--trace');
+  const system = flagVal(args, '--system');
+  const stepArg = flagVal(args, '--step');
+  if (!id) return usageErr('glassbox investigate --trace <id> [--step N] [--system "<counterfactual prompt>"]');
+  const original = store.get(id);
+  if (!original) return notFound(id);
+  const reg = registry[original.config.agent];
+  if (!reg) return usageErr(`agent "${original.config.agent}" is not registered`);
+
+  const fromStep = stepArg != null ? Number.parseInt(stepArg, 10) : 0;
+  const sel = await reg.client();
+  const { investigation: inv, fork } = await investigate({
+    original,
+    fromStep,
+    mutation: { system: system ?? null },
+    agent: reg.build(),
+    client: sel.client,
+    modelId: sel.modelId,
+  });
+  store.save(fork);
+
+  console.log(`investigate ${id} → ${fork.id}   (fork at step #${fromStep}${system ? ', edited prompt' : ''})`);
+  console.log(`  behavior: ${inv.diff.summary}`);
+  for (const f of inv.resolved) console.log(`  ✓ resolved:   [${f.severity}] ${f.message}`);
+  for (const sc of inv.severityChanges) console.log(`  ⤓ downgraded: ${sc.before.message}  (${sc.before.severity} → ${sc.after.severity})`);
+  for (const f of inv.introduced) console.log(`  ⚠ introduced: [${f.severity}] ${f.message}`);
+  if (!inv.resolved.length && !inv.severityChanges.length && !inv.introduced.length) console.log('  firewall findings: unchanged');
+}
+
+function cmdProbe(args: string[], store: TraceStore): void {
+  const id = flagVal(args, '--trace');
+  if (!id) return usageErr('glassbox probe --trace <id>');
+  const trace = store.get(id);
+  if (!trace) return notFound(id);
+  const report = runProbes(trace, [watchToolCalls(), assertSideEffectsTracked(), assertArgsUnder(50_000)]);
+  console.log(`probe ${id}: ${report.assertionsPassed} passed, ${report.assertionsFailed} failed`);
+  for (const h of report.hits) {
+    const mark = h.mode === 'assert' ? (h.ok ? '✓' : '✗') : '·';
+    console.log(`  ${mark} #${h.stepIdx} ${h.probe}   ${h.note}`);
   }
   process.exitCode = report.ok ? 0 : 1;
 }

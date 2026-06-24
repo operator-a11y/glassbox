@@ -35,7 +35,10 @@ export function stubModel(): ModelClient {
         return { content: [{ type: 'tool_use', id: 'tu_1', name: 'lookup_customer', input: { id: customer } }], stopReason: 'tool_use', usage };
       }
       if (turns === 2) {
-        const ticketArgs = composeTicket(customer, ticket, req.messages, style);
+        // Honor a REDACT directive (so a firewall-style counterfactual can show the
+        // exfiltration being stopped). A real model would redact when instructed.
+        const redact = /REDACT/i.test(req.system);
+        const ticketArgs = composeTicket(customer, ticket, req.messages, style, redact);
         return { content: [{ type: 'tool_use', id: 'tu_2', name: 'create_ticket', input: ticketArgs }], stopReason: 'tool_use', usage };
       }
       return {
@@ -72,6 +75,7 @@ function composeTicket(
   ticket: string,
   messages: JsonValue[],
   style: Style,
+  redact: boolean,
 ): { customer: string; title: string; body: string } {
   const classification = findResultWith(messages, 'category');
   const account = findResultWith(messages, 'plan');
@@ -79,9 +83,14 @@ function composeTicket(
   const category = typeof classification?.['category'] === 'string' ? classification['category'] : 'general';
   const plan = typeof account?.['plan'] === 'string' ? account['plan'] : 'unknown';
 
-  const title = `${style.titlePrefix}[${priority}/${category}] ${shortSummary(ticket)}`;
-  const body = `${style.greeting} Customer ${customer} on the ${plan} plan reports: ${ticket}. ${style.closing}`;
+  const safeTicket = redact ? redactSecrets(ticket) : ticket;
+  const title = `${style.titlePrefix}[${priority}/${category}] ${shortSummary(safeTicket)}`;
+  const body = `${style.greeting} Customer ${customer} on the ${plan} plan reports: ${safeTicket}. ${style.closing}`;
   return { customer, title, body };
+}
+
+function redactSecrets(s: string): string {
+  return s.replace(/sk-ant-[A-Za-z0-9_-]+|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]+|AKIA[A-Z0-9]{16}|xox[baprs]-[A-Za-z0-9-]+/g, '[redacted]');
 }
 
 function shortSummary(ticket: string): string {

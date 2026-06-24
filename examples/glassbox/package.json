@@ -12,6 +12,7 @@
     "@glassbox/engine": "workspace:*",
     "@glassbox/evals": "workspace:*",
     "@glassbox/firewall": "workspace:*",
+    "@glassbox/probes": "workspace:*",
     "@glassbox/example-research-emailer": "workspace:*",
     "@glassbox/example-support-triage": "workspace:*"
   }

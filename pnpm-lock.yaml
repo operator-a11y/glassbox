@@ -72,6 +72,9 @@ importers:
       '@glassbox/firewall':
         specifier: workspace:*
         version: link:../../packages/firewall
+      '@glassbox/probes':
+        specifier: workspace:*
+        version: link:../../packages/probes
 
   examples/research-emailer:
     dependencies:
