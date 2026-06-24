@@ -1,0 +1,18 @@
+{
+  "name": "@glassbox/probes",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Probes: read-only watch/assert over a trace, and fork-to-investigate counterfactuals.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@glassbox/engine": "workspace:*",
+    "@glassbox/evals": "workspace:*",
+    "@glassbox/firewall": "workspace:*"
+  }
+}

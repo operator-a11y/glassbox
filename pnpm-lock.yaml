@@ -121,6 +121,18 @@ importers:
         specifier: workspace:*
         version: link:../engine
 
+  packages/probes:
+    dependencies:
+      '@glassbox/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@glassbox/evals':
+        specifier: workspace:*
+        version: link:../evals
+      '@glassbox/firewall':
+        specifier: workspace:*
+        version: link:../firewall
+
 packages:
 
   '@alloc/quick-lru@5.2.0':
