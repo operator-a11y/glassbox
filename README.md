@@ -8,8 +8,9 @@ Record everything an agent does, replay it exactly, and fork from any step to ex
 > continuation, with side effects recorded-and-mocked. No product UI yet.
 
 See [`DESIGN.md`](./DESIGN.md) for how the engine works and why (the portfolio signal),
-[`INTEGRATION.md`](./INTEGRATION.md) for the agent contract, [`SPEC.md`](./SPEC.md) for the
-product, [`PLAN.md`](./PLAN.md) for the roadmap, and [`CLAUDE.md`](./CLAUDE.md) for conventions.
+[`INTEGRATION.md`](./INTEGRATION.md) for the agent contract, [`FIREWALL.md`](./FIREWALL.md) for the
+MCP security layer, [`SPEC.md`](./SPEC.md) for the product, [`PLAN.md`](./PLAN.md) for the roadmap,
+and [`CLAUDE.md`](./CLAUDE.md) for conventions.
 
 ## Quickstart
 
@@ -31,6 +32,22 @@ pnpm demo      # record → replay → fork on the demo agent, end to end
 Everything runs offline against a deterministic stub model. Set `ANTHROPIC_API_KEY`
 (and optionally `GLASSBOX_MODEL_ID`, default `claude-sonnet-4-6`) to record and fork against the
 real model instead; replay never calls the model.
+
+## The MCP firewall
+
+The same capture layer that records tool calls can guard them. `scanTrace` audits any
+recorded run for **secrets, prompt-injection, and untrusted→sink taint**, scored by
+data-flow direction — a secret reaching a side-effecting tool's args is critical
+exfiltration, not just "a secret":
+
+```bash
+pnpm glassbox scan --trace <id>
+# [CRITICAL] secret  possible exfiltration: Anthropic API key in args of side-effecting tool "create_ticket"
+#               /steps/5/input   Anthropic API key ⟨len 41, sha256:bdb1720c⟩   (value never echoed)
+```
+
+It also runs live (`guard` blocks exfiltration and quarantines injected tool results) and
+shows up as a Firewall panel on every trace in the UI. See [`FIREWALL.md`](./FIREWALL.md).
 
 ## The debugger UI
 
@@ -66,7 +83,8 @@ Instrumenting a new agent is config-only via the tool-loop adapter — see
 ```
 packages/engine            record-replay-fork core, trace model, tool-loop adapter,
                            Anthropic SDK adapter, SQLite store, generic CLI (pure, zod-validated)
-packages/daemon            local REST API over the engine (record/list/replay/fork)
+packages/daemon            local REST API over the engine (record/list/replay/fork/scan)
+packages/firewall          MCP firewall: secret/injection/taint audit + live guard
 apps/web                   Next.js debugger UI (thin client over the daemon)
 examples/research-emailer  demo agent #1: topic → search → read → draft → send_email → confirm
 examples/support-triage    demo agent #2: ticket → classify → lookup → draft → create_ticket → confirm
@@ -93,7 +111,8 @@ SPEC.md PLAN.md CLAUDE.md  product, roadmap, conventions
 contract: tool-loop adapter, per-tool opt-in live re-exec, Anthropic SDK adapter, SQLite, generic
 CLI, proven on a **second agent with no engine changes**). Phase 2 (the money demo): the
 `glassbox dev` daemon + Next.js debugger UI — open a recorded run in the browser, scrub it, fork a
-step with an edited prompt, and see the divergent branch. `pnpm i && pnpm verify` is green from a
-fresh clone; the daemon API and UI proxy are verified end to end. **Phase 3** (packaging +
-open-source) is underway: the design write-up, integration contract, license, and contributing
-guide are in; a demo GIF and making the repo public are the remaining steps.
+step with an edited prompt, and see the divergent branch. Phase 3 (packaging + open-source) shipped
+the design write-up, integration contract, license, and contributing guide. The first **later
+pillar — the MCP firewall** — is also built: secret/injection/taint audit + a live guard, on the
+same engine. `pnpm i && pnpm verify` is green from a fresh clone; the daemon, UI, and firewall are
+verified end to end.
