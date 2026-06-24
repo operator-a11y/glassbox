@@ -59,11 +59,12 @@ export function scanTraceResult(trace: Trace, options: ScanOptions = {}): ScanRe
 
   for (const s of surfaces) {
     const text = normalize(s.leaves.join('\n'));
-    // Separator-free join for secrets so a key split across adjacent leaves is still caught;
-    // injection keeps the '\n' join to avoid cross-leaf phrase false positives.
-    const secretText = normalize(s.leaves.join(''));
+    // Entropy tier on the '\n' join (no cross-leaf artifacts); prefixed detectors also on a
+    // separator-free join so a distinctive key split across adjacent leaves is still caught.
+    const joined = normalize(s.leaves.join(''));
+    const secretMatches = [...scanSecrets(text), ...scanSecrets(joined, { entropy: false })];
 
-    for (const m of scanSecrets(secretText)) {
+    for (const m of secretMatches) {
       if (engineIds.has(m.secret)) continue;
       const sev = secretSeverity(s);
       candidates.push({

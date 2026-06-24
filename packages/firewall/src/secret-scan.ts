@@ -41,20 +41,26 @@ const TOKEN_RE = /[A-Za-z0-9+/_=-]{24,512}/g;
 const HEX_ONLY = /^[0-9a-f]+$/i;
 const MAX_SCAN_LEN = 64 * 1024;
 
-export function scanSecrets(text: string): SecretMatch[] {
+export function scanSecrets(text: string, opts: { entropy?: boolean } = {}): SecretMatch[] {
   const t = text.length > MAX_SCAN_LEN ? text.slice(0, MAX_SCAN_LEN) : text;
   const out: SecretMatch[] = [];
 
+  // Prefixed detectors are distinctive (very low FP), so they are safe to run over a
+  // separator-free join to catch keys split across leaves.
   for (const d of PREFIXED) {
     for (const m of t.matchAll(d.re)) {
       out.push({ rule: d.rule, label: d.label, secret: m[0], index: m.index ?? 0 });
     }
   }
 
-  for (const m of t.matchAll(TOKEN_RE)) {
-    const tok = m[0];
-    if (isHighEntropySecret(tok)) {
-      out.push({ rule: 'high-entropy', label: 'high-entropy token', secret: tok, index: m.index ?? 0 });
+  // The entropy tier is FP-prone across leaf boundaries, so callers disable it on the
+  // separator-free join and run it only on the '\n'-joined text.
+  if (opts.entropy ?? true) {
+    for (const m of t.matchAll(TOKEN_RE)) {
+      const tok = m[0];
+      if (isHighEntropySecret(tok)) {
+        out.push({ rule: 'high-entropy', label: 'high-entropy token', secret: tok, index: m.index ?? 0 });
+      }
     }
   }
 
