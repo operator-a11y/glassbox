@@ -3,7 +3,7 @@
  * trace → Check, so a case is just an input plus a list of assertions.
  */
 
-import type { Trace } from '@glassbox/engine';
+import type { JsonValue, Trace } from '@glassbox/engine';
 
 export interface Check {
   name: string;
@@ -13,13 +13,26 @@ export interface Check {
 
 export type Assertion = (trace: Trace) => Check;
 
+/** Concatenate the string leaves of a value, so a needle isn't matched against JSON
+ *  key names or delimiters (avoids both false positives and false negatives). */
+function stringLeaves(v: JsonValue): string {
+  const out: string[] = [];
+  const walk = (x: JsonValue): void => {
+    if (typeof x === 'string') out.push(x);
+    else if (Array.isArray(x)) for (const el of x) walk(el);
+    else if (x && typeof x === 'object') for (const k of Object.keys(x)) walk(x[k]!);
+  };
+  walk(v);
+  return out.join('\n');
+}
+
 export const finalContains =
   (needle: string): Assertion =>
-  (t) => ({ name: `final contains "${needle}"`, pass: JSON.stringify(t.final).includes(needle) });
+  (t) => ({ name: `final contains "${needle}"`, pass: stringLeaves(t.final).includes(needle) });
 
 export const finalNotContains =
   (needle: string): Assertion =>
-  (t) => ({ name: `final does not contain "${needle}"`, pass: !JSON.stringify(t.final).includes(needle) });
+  (t) => ({ name: `final does not contain "${needle}"`, pass: !stringLeaves(t.final).includes(needle) });
 
 export const toolCalled =
   (name: string): Assertion =>

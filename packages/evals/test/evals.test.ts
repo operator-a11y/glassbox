@@ -61,6 +61,37 @@ describe('compareRuns (regression diff)', () => {
     expect(d.changes.some((c) => c.kind === 'added' && c.idx === 1)).toBe(true);
     expect(d.costDelta.totalTokens).toBe(5);
   });
+
+  it('localizes an interior insertion via LCS (no cascade)', () => {
+    const g = trace([tool(0, 'search', 'read_only', {}, {}), tool(1, 'read', 'read_only', {}, {}), llm(2, [{ type: 'text', text: 'done' }])], null);
+    const c = trace([tool(0, 'search', 'read_only', {}, {}), tool(1, 'search', 'read_only', {}, {}), tool(2, 'read', 'read_only', {}, {}), llm(3, [{ type: 'text', text: 'done' }])], null);
+    const d = compareRuns(g, c);
+    expect(d.changes.filter((x) => x.kind === 'changed')).toHaveLength(0);
+    expect(d.changes.filter((x) => x.kind === 'added')).toHaveLength(1);
+  });
+
+  it('detects a real↔simulated side-effect flip', () => {
+    const real = trace([tool(0, 'send', 'side_effecting', { to: 'x' }, { ok: true })], null);
+    const sim = trace([{ ...tool(0, 'send', 'side_effecting', { to: 'x' }, { ok: true }), wasRealEffect: false } as Step], null);
+    expect(compareRuns(real, sim).identical).toBe(false);
+  });
+
+  it('enriches a changed summary with the differing fields', () => {
+    const g = trace([tool(0, 'send', 'side_effecting', { to: 'x', subject: 'A', body: 'hi' }, { ok: true })], null);
+    const c = trace([tool(0, 'send', 'side_effecting', { to: 'x', subject: 'B', body: 'bye' }, { ok: true })], null);
+    const d = compareRuns(g, c);
+    expect(d.changes).toHaveLength(1);
+    expect(d.changes[0]!.summary).toContain('subject');
+    expect(d.changes[0]!.summary).toContain('body');
+  });
+
+  it('surfaces cost delta in the summary even when behavior is identical', () => {
+    const g = trace([], null, { inputTokens: 100, outputTokens: 50, totalTokens: 150 });
+    const c = trace([], null, { inputTokens: 30, outputTokens: 10, totalTokens: 40 });
+    const d = compareRuns(g, c);
+    expect(d.identical).toBe(true);
+    expect(d.summary).toContain('cost -110 tokens');
+  });
 });
 
 describe('assertions', () => {
@@ -72,6 +103,12 @@ describe('assertions', () => {
     expect(finalContains('neutral')(t).pass).toBe(true);
     expect(statusIs('completed')(t).pass).toBe(true);
     expect(costUnder(1)(t).pass).toBe(true);
+  });
+
+  it('finalContains matches string leaves, not JSON key names', () => {
+    const t = trace([], { confirmation: 'Done neutral' });
+    expect(finalContains('Done')(t).pass).toBe(true);
+    expect(finalContains('confirmation')(t).pass).toBe(false); // key name is not content
   });
 });
 
