@@ -9,8 +9,8 @@ Record everything an agent does, replay it exactly, and fork from any step to ex
 
 See [`DESIGN.md`](./DESIGN.md) for how the engine works and why (the portfolio signal),
 [`INTEGRATION.md`](./INTEGRATION.md) for the agent contract, [`FIREWALL.md`](./FIREWALL.md) for the
-MCP security layer, [`SPEC.md`](./SPEC.md) for the product, [`PLAN.md`](./PLAN.md) for the roadmap,
-and [`CLAUDE.md`](./CLAUDE.md) for conventions.
+MCP security layer, [`EVALS.md`](./EVALS.md) for the evals + regression gate, [`SPEC.md`](./SPEC.md)
+for the product, [`PLAN.md`](./PLAN.md) for the roadmap, and [`CLAUDE.md`](./CLAUDE.md) for conventions.
 
 ## Quickstart
 
@@ -49,6 +49,20 @@ pnpm glassbox scan --trace <id>
 It also runs live (`guard` blocks exfiltration and quarantines injected tool results) and
 shows up as a Firewall panel on every trace in the UI. See [`FIREWALL.md`](./FIREWALL.md).
 
+## Evals + regression gate
+
+Deterministic replay makes a regression gate nearly free — `compareRuns` semantically diffs a
+re-run against a golden trace (ignoring per-run nondeterminism), so a prompt edit that changes
+behavior fails the gate:
+
+```bash
+pnpm glassbox regress --trace <golden> --system "…edited prompt…"   # exit 1 on a behavior change
+pnpm glassbox eval    --agent support-triage                        # run the agent's eval suite
+```
+
+`runEvals` scores cases with an assertion DSL (`toolCalled`, `noRealSideEffects`, `finalContains`,
+…) that composes with the firewall. See [`EVALS.md`](./EVALS.md).
+
 ## The debugger UI
 
 ```bash
@@ -85,6 +99,7 @@ packages/engine            record-replay-fork core, trace model, tool-loop adapt
                            Anthropic SDK adapter, SQLite store, generic CLI (pure, zod-validated)
 packages/daemon            local REST API over the engine (record/list/replay/fork/scan)
 packages/firewall          MCP firewall: secret/injection/taint audit + live guard
+packages/evals             evals + regression gate (semantic run diff + assertions)
 apps/web                   Next.js debugger UI (thin client over the daemon)
 examples/research-emailer  demo agent #1: topic → search → read → draft → send_email → confirm
 examples/support-triage    demo agent #2: ticket → classify → lookup → draft → create_ticket → confirm
@@ -112,7 +127,7 @@ contract: tool-loop adapter, per-tool opt-in live re-exec, Anthropic SDK adapter
 CLI, proven on a **second agent with no engine changes**). Phase 2 (the money demo): the
 `glassbox dev` daemon + Next.js debugger UI — open a recorded run in the browser, scrub it, fork a
 step with an edited prompt, and see the divergent branch. Phase 3 (packaging + open-source) shipped
-the design write-up, integration contract, license, and contributing guide. The first **later
-pillar — the MCP firewall** — is also built: secret/injection/taint audit + a live guard, on the
-same engine. `pnpm i && pnpm verify` is green from a fresh clone; the daemon, UI, and firewall are
-verified end to end.
+the design write-up, integration contract, license, and contributing guide. Two **later pillars** are also built on the same engine: the **MCP firewall**
+(secret/injection/taint audit + live guard) and the **evals + regression gate** (semantic run diff
++ assertion scoring). `pnpm i && pnpm verify` is green from a fresh clone; the daemon, UI, firewall,
+and evals are verified end to end.
