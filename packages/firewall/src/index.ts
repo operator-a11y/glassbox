@@ -23,3 +23,8 @@ export type { ScanOptions, ScanResult } from './scan-trace.ts';
 
 export { normalize, shannonEntropy } from './normalize.ts';
 export { secretFingerprint, redactSecret, neutralizePhrase } from './redact.ts';
+
+export { createFirewall } from './firewall.ts';
+export type { Firewall, FirewallConfig, PolicyRule, ToolCall } from './firewall.ts';
+export { guard } from './guard.ts';
+export type { FirewallEvent } from './guard.ts';
